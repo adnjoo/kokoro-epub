@@ -3,8 +3,7 @@
 Before running any scripts, create and activate a virtual environment:
 
 ```bash
-# Create virtual environment (only needed once)
-python3 -m venv kokoro-env
+python3.11 -m venv kokoro-env # 3.13 doesn't work
 
 # Activate the virtual environment
 source kokoro-env/bin/activate  # macOS/Linux

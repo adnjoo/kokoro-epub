@@ -1,5 +1,5 @@
 *.wav
 *.mp3
-/kokoro-env
+**/kokoro-env
 *.epub
 .DS_Store

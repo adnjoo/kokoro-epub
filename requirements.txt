@@ -1,5 +1,5 @@
 ebooklib
 beautifulsoup4
-kokoro>=0.9.4
 soundfile
 pydub
+kokoro

@@ -7,8 +7,8 @@ import soundfile as sf
 import os
 
 # --- Config ---
-book_path = "eat.epub"
-output_dir = "audiobook"
+book_path = "great.epub"
+output_dir = "output"
 lang_code = 'a'
 voice = 'af_heart'
 os.makedirs(output_dir, exist_ok=True)

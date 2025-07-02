@@ -25,6 +25,6 @@ for f in wav_files:
     combined += audio
 
 # combined.export(output_path, format="wav") # large file size
-combined.export("audiobook/full_book.mp3", format="mp3", bitrate="128k")
+combined.export("output/full_book.mp3", format="mp3", bitrate="128k")
 
 print(f"\n✅ Combined audiobook saved to: {output_path}")
