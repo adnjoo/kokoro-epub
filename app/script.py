@@ -55,7 +55,7 @@ def process_epub(
 if __name__ == "__main__":
     # CLI usage for backward compatibility
     process_epub(
-        book_path="input/great.epub",
+        book_path="input/gift.epub",
         output_dir="output",
         lang_code='a',
         voice='af_heart'
