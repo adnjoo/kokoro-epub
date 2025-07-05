@@ -10,6 +10,7 @@ from kokoro import KPipeline
 import soundfile as sf
 import os
 from timers import Timer, estimate_total  # ⏱️ Import timing tools
+import re
 
 def process_epub(
     book_path,
@@ -76,8 +77,12 @@ def process_txt(
     pipeline = KPipeline(lang_code=lang_code)
     with open(txt_path, 'r', encoding='utf-8') as f:
         text = f.read()
-    # Split by paragraphs (blank lines)
-    paragraphs = [p.strip() for p in text.split('\n\n') if len(p.strip()) >= 100]
+    # Normalize line endings
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    # Replace single newlines (not part of double newline) with a space
+    text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)
+    # Only include paragraphs with at least 100 characters; this will skip short quotes or poetry
+    paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if len(p.strip()) >= 100]
     estimate_total(paragraphs, avg_seconds_per_chapter=15)
 
     total_timer = Timer()
