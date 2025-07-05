@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 # Import the refactored process_epub function
-from script import process_epub
+from processor import process_epub, process_txt
 from ebooklib import epub, ITEM_DOCUMENT
 from bs4 import BeautifulSoup
 from merge_audio import merge_audio_files
@@ -17,38 +17,60 @@ class Worker(QThread):
     progress_value = pyqtSignal(int)
     progress_max = pyqtSignal(int)
 
-    def __init__(self, epub_path, output_dir):
+    def __init__(self, file_path, output_dir):
         super().__init__()
-        self.epub_path = epub_path
+        self.file_path = file_path
         self.output_dir = output_dir
         self._is_stopped = False
 
     def run(self):
-        self.progress.emit(f"Processing: {os.path.basename(self.epub_path)}")
+        ext = os.path.splitext(self.file_path)[1].lower()
+        self.progress.emit(f"Processing: {os.path.basename(self.file_path)}")
         try:
-            # Estimate number of chapters for progress bar
-            book = epub.read_epub(self.epub_path)
-            chapters = [item for item in book.items if item.get_type() == ITEM_DOCUMENT]
-            total = sum(
-                1 for i, chapter in enumerate(chapters)
-                if len(BeautifulSoup(chapter.get_content(), 'html.parser').get_text().strip()) >= 100
-            )
-            self.progress_max.emit(total if total > 0 else 1)
-            self._current = 0
+            if ext == '.epub':
+                book = epub.read_epub(self.file_path)
+                chapters = [item for item in book.items if item.get_type() == ITEM_DOCUMENT]
+                total = sum(
+                    1 for i, chapter in enumerate(chapters)
+                    if len(BeautifulSoup(chapter.get_content(), 'html.parser').get_text().strip()) >= 100
+                )
+                self.progress_max.emit(total if total > 0 else 1)
+                self._current = 0
 
-            def progress_callback(msg):
-                self.progress.emit(msg)
-                if "Done chapter" in msg or "Done!" in msg:
-                    self._current += 1
-                    self.progress_value.emit(self._current)
-                if self._is_stopped:
-                    raise Exception("Processing stopped by user.")
+                def progress_callback(msg):
+                    self.progress.emit(msg)
+                    if "Done chapter" in msg or "Done!" in msg:
+                        self._current += 1
+                        self.progress_value.emit(self._current)
+                    if self._is_stopped:
+                        raise Exception("Processing stopped by user.")
 
-            process_epub(
-                self.epub_path,
-                self.output_dir,
-                progress_callback=progress_callback
-            )
+                process_epub(
+                    self.file_path,
+                    self.output_dir,
+                    progress_callback=progress_callback
+                )
+            elif ext == '.txt':
+                # Count paragraphs for progress bar
+                with open(self.file_path, 'r', encoding='utf-8') as f:
+                    text = f.read()
+                paragraphs = [p.strip() for p in text.split('\n\n') if len(p.strip()) >= 100]
+                self.progress_max.emit(len(paragraphs) if paragraphs else 1)
+                self._current = 0
+                def progress_callback(msg):
+                    self.progress.emit(msg)
+                    if "Done chunk" in msg or "Done!" in msg:
+                        self._current += 1
+                        self.progress_value.emit(self._current)
+                    if self._is_stopped:
+                        raise Exception("Processing stopped by user.")
+                process_txt(
+                    self.file_path,
+                    self.output_dir,
+                    progress_callback=progress_callback
+                )
+            else:
+                raise Exception("Unsupported file type. Please use .epub or .txt.")
             if not self._is_stopped:
                 self.finished.emit(f"Done! WAV files in: {self.output_dir}")
         except Exception as e:
@@ -60,11 +82,11 @@ class Worker(QThread):
 class DropWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("EPUB to Audio (Kokoro TTS)")
+        self.setWindowTitle("EPUB/TXT to Audio (Kokoro TTS)")
         self.setAcceptDrops(True)
         self.resize(400, 250)
         layout = QVBoxLayout()
-        self.label = QLabel("Drop an EPUB file here to generate an audio book.")
+        self.label = QLabel("Drop an EPUB or TXT file here to generate an audio book.")
         self.label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.label)
         self.progress_bar = QProgressBar()
@@ -93,21 +115,22 @@ class DropWidget(QWidget):
             event.acceptProposedAction()
 
     def dropEvent(self, event):
-        epub_path = event.mimeData().urls()[0].toLocalFile()
-        if epub_path.lower().endswith('.epub'):
+        file_path = event.mimeData().urls()[0].toLocalFile()
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext in ['.epub', '.txt']:
             self.label.setText("Processing...")
             self.open_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
             self.progress_bar.setValue(0)
             self.progress_bar.setVisible(True)
-            self.worker = Worker(epub_path, self.output_dir)
+            self.worker = Worker(file_path, self.output_dir)
             self.worker.progress.connect(self.label.setText)
             self.worker.finished.connect(self.done)
             self.worker.progress_value.connect(self.progress_bar.setValue)
             self.worker.progress_max.connect(self.progress_bar.setMaximum)
             self.worker.start()
         else:
-            self.label.setText("Please drop a valid EPUB file.")
+            self.label.setText("Please drop a valid EPUB or TXT file.")
 
     def done(self, msg):
         self.label.setText(msg)
@@ -152,7 +175,7 @@ class DropWidget(QWidget):
             self.stop_btn.setEnabled(False)
 
     def reset_ui(self):
-        self.label.setText("Drop an EPUB file here to generate WAV files.")
+        self.label.setText("Drop an EPUB or TXT file here to generate WAV files.")
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(False)
         self.open_btn.setEnabled(False)

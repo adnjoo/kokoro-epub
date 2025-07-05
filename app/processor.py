@@ -1,4 +1,8 @@
-# script.py
+"""
+processor.py
+
+Audio generation from EPUB and TXT files using Kokoro TTS pipeline.
+"""
 
 from ebooklib import epub, ITEM_DOCUMENT
 from bs4 import BeautifulSoup
@@ -16,6 +20,10 @@ def process_epub(
     progress_callback=None,
     chapter_callback=None
 ):
+    """
+    Convert an EPUB file to audio files (WAV) using Kokoro TTS.
+    Each sufficiently long chapter becomes one or more audio files.
+    """
     os.makedirs(output_dir, exist_ok=True)
     pipeline = KPipeline(lang_code=lang_code)
     book = epub.read_epub(book_path)
@@ -52,11 +60,50 @@ def process_epub(
     if progress_callback:
         progress_callback("✅ All chapters done!")
 
+def process_txt(
+    txt_path,
+    output_dir="output",
+    lang_code='a',
+    voice='af_heart',
+    progress_callback=None,
+    chunk_callback=None
+):
+    """
+    Convert a TXT file to audio files (WAV) using Kokoro TTS.
+    Each sufficiently long paragraph (split by blank lines) becomes one or more audio files.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    pipeline = KPipeline(lang_code=lang_code)
+    with open(txt_path, 'r', encoding='utf-8') as f:
+        text = f.read()
+    # Split by paragraphs (blank lines)
+    paragraphs = [p.strip() for p in text.split('\n\n') if len(p.strip()) >= 100]
+    estimate_total(paragraphs, avg_seconds_per_chapter=15)
+
+    total_timer = Timer()
+    total_timer.start()
+
+    for i, paragraph in enumerate(paragraphs):
+        if progress_callback:
+            progress_callback(f"🔊 Processing chunk {i}")
+        chunk_timer = Timer()
+        chunk_timer.start()
+        for j, (_, _, audio) in enumerate(pipeline(paragraph, voice=voice, speed=1)):
+            filename = f"{output_dir}/chunk_{i:02d}_{j}.wav"
+            sf.write(filename, audio, 24000)
+            if chunk_callback:
+                chunk_callback(filename)
+        chunk_timer.print_elapsed(f"✅ Done chunk {i}")
+    total_timer.print_elapsed("✅ All chunks")
+    if progress_callback:
+        progress_callback("✅ All chunks done!")
+
 if __name__ == "__main__":
-    # CLI usage for backward compatibility
+    # CLI usage for backward compatibility (EPUB only)
     process_epub(
         book_path="input/gift.epub",
         output_dir="output",
         lang_code='a',
         voice='af_heart'
     )
+
