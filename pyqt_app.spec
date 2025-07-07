@@ -41,7 +41,7 @@ exe = EXE(
 )
 app = BUNDLE(
     exe,
-    name='pyqt_app.app',
-    icon=None,
+    name='VibeTails.app',
+    icon='assets/logo.icns',
     bundle_identifier=None,
 )
