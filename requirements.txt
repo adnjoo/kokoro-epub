@@ -6,3 +6,5 @@ kokoro
 
 PyQt5
 sounddevice
+
+PyPDF2

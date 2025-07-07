@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 # Import the refactored process_epub function
-from processor import process_epub, process_txt
+from processor import process_epub, process_txt, process_pdf
 from ebooklib import epub, ITEM_DOCUMENT
 from bs4 import BeautifulSoup
 from merge_audio import merge_audio_files
@@ -69,8 +69,27 @@ class Worker(QThread):
                     self.output_dir,
                     progress_callback=progress_callback
                 )
+            elif ext == '.pdf':
+                # Count valid pages for progress bar
+                from PyPDF2 import PdfReader
+                reader = PdfReader(self.file_path)
+                valid_pages = [p for p in (page.extract_text() for page in reader.pages) if p and len(p.strip()) >= 100]
+                self.progress_max.emit(len(valid_pages) if valid_pages else 1)
+                self._current = 0
+                def progress_callback(msg):
+                    self.progress.emit(msg)
+                    if "Done page" in msg or "Done!" in msg:
+                        self._current += 1
+                        self.progress_value.emit(self._current)
+                    if self._is_stopped:
+                        raise Exception("Processing stopped by user.")
+                process_pdf(
+                    self.file_path,
+                    self.output_dir,
+                    progress_callback=progress_callback
+                )
             else:
-                raise Exception("Unsupported file type. Please use .epub or .txt.")
+                raise Exception("Unsupported file type. Please use .epub, .txt, or .pdf.")
             if not self._is_stopped:
                 self.finished.emit(f"Done! WAV files in: {self.output_dir}")
         except Exception as e:
@@ -82,11 +101,11 @@ class Worker(QThread):
 class DropWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("EPUB/TXT to Audio (Kokoro TTS)")
+        self.setWindowTitle("EPUB/TXT/PDF to Audio (Kokoro TTS)")
         self.setAcceptDrops(True)
         self.resize(400, 250)
         layout = QVBoxLayout()
-        self.label = QLabel("Drop an EPUB or TXT file here to generate an audio book.")
+        self.label = QLabel("Drop an EPUB, TXT, or PDF file here to generate an audio book.")
         self.label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.label)
         self.progress_bar = QProgressBar()
@@ -117,7 +136,7 @@ class DropWidget(QWidget):
     def dropEvent(self, event):
         file_path = event.mimeData().urls()[0].toLocalFile()
         ext = os.path.splitext(file_path)[1].lower()
-        if ext in ['.epub', '.txt']:
+        if ext in ['.epub', '.txt', '.pdf']:
             self.label.setText("Processing...")
             self.open_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
@@ -130,7 +149,7 @@ class DropWidget(QWidget):
             self.worker.progress_max.connect(self.progress_bar.setMaximum)
             self.worker.start()
         else:
-            self.label.setText("Please drop a valid EPUB or TXT file.")
+            self.label.setText("Please drop a valid EPUB, TXT, or PDF file.")
 
     def done(self, msg):
         self.label.setText(msg)
@@ -175,7 +194,7 @@ class DropWidget(QWidget):
             self.stop_btn.setEnabled(False)
 
     def reset_ui(self):
-        self.label.setText("Drop an EPUB or TXT file here to generate WAV files.")
+        self.label.setText("Drop an EPUB, TXT, or PDF file here to generate WAV files.")
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(False)
         self.open_btn.setEnabled(False)

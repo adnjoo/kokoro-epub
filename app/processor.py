@@ -11,6 +11,7 @@ import soundfile as sf
 import os
 from timers import Timer, estimate_total  # ⏱️ Import timing tools
 import re
+from PyPDF2 import PdfReader
 
 def process_epub(
     book_path,
@@ -102,6 +103,44 @@ def process_txt(
     total_timer.print_elapsed("✅ All chunks")
     if progress_callback:
         progress_callback("✅ All chunks done!")
+
+def process_pdf(
+    pdf_path,
+    output_dir="output",
+    lang_code='a',
+    voice='af_heart',
+    progress_callback=None,
+    chunk_callback=None
+):
+    """
+    Convert a PDF file to audio files (WAV) using Kokoro TTS.
+    Each sufficiently long page becomes one or more audio files.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    pipeline = KPipeline(lang_code=lang_code)
+    reader = PdfReader(pdf_path)
+    pages = [page.extract_text() for page in reader.pages]
+    # Only include pages with at least 100 characters
+    valid_pages = [p.strip() for p in pages if p and len(p.strip()) >= 100]
+    estimate_total(valid_pages, avg_seconds_per_chapter=15)
+
+    total_timer = Timer()
+    total_timer.start()
+
+    for i, page_text in enumerate(valid_pages):
+        if progress_callback:
+            progress_callback(f"🔊 Processing page {i}")
+        chunk_timer = Timer()
+        chunk_timer.start()
+        for j, (_, _, audio) in enumerate(pipeline(page_text, voice=voice, speed=1)):
+            filename = f"{output_dir}/page_{i:02d}_{j}.wav"
+            sf.write(filename, audio, 24000)
+            if chunk_callback:
+                chunk_callback(filename)
+        chunk_timer.print_elapsed(f"✅ Done page {i}")
+    total_timer.print_elapsed("✅ All pages")
+    if progress_callback:
+        progress_callback("✅ All pages done!")
 
 if __name__ == "__main__":
     # CLI usage for backward compatibility (EPUB only)

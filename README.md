@@ -12,7 +12,7 @@ source kokoro-env/Scripts/activate  # Windows/Git Bash
 
 # Install dependencies
 pip install -r requirements.txt
-````
+```
 
 ---
 
@@ -42,3 +42,14 @@ brew install ffmpeg
 ## License
 
 This project is licensed under the [MIT License](./LICENSE).
+
+## Running the Desktop App
+
+To launch the PyQt desktop application:
+
+```bash
+cd app
+python pyqt_app.py
+```
+
+This will open a window where you can drag and drop EPUB, TXT, or PDF files to generate audio files.
