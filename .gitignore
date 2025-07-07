@@ -5,8 +5,8 @@
 !input/great.epub  # <== explicitly allow this one file
 **/kokoro-env
 **/__pycache__
-/build/
-/dist/
+**/build/
+**/dist/
 
 # web
 

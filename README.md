@@ -53,3 +53,9 @@ python pyqt_app.py
 ```
 
 This will open a window where you can drag and drop EPUB, TXT, or PDF files to generate audio files.
+
+## Build
+
+```bash
+pyinstaller pyqt_app.spec
+```
