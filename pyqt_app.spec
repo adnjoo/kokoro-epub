@@ -2,7 +2,7 @@
 
 a = Analysis(
     ['app/pyqt_app.py'],
-    pathex=[],
+    pathex=['app'],
     binaries=[],
     datas=[
         ('kokoro-env/lib/python3.11/site-packages/language_tags/data/json', 'language_tags/data/json'),
@@ -43,5 +43,5 @@ app = BUNDLE(
     exe,
     name='VibeTails.app',
     icon='assets/logo.icns',
-    bundle_identifier=None,
+    bundle_identifier='com.vibetails.desktop',
 )
