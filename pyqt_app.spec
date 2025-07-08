@@ -9,7 +9,7 @@ a = Analysis(
         ('kokoro-env/lib/python3.11/site-packages/espeakng_loader/espeak-ng-data', 'espeakng_loader/espeak-ng-data'),
     ],
     hiddenimports=[],
-    hookspath=[],
+    hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
