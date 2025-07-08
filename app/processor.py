@@ -39,7 +39,11 @@ def process_epub(
     """
     print(f"process_epub called with: {book_path}, output_dir={output_dir}")
     os.makedirs(output_dir, exist_ok=True)
-    pipeline = KPipeline(lang_code=lang_code)
+    try:
+        pipeline = KPipeline(lang_code=lang_code)
+    except Exception as e:
+        print(f"Error initializing KPipeline: {e}")
+        return
     book = epub.read_epub(book_path)
     chapters = [item for item in book.items if item.get_type() == ITEM_DOCUMENT]
     print(f"Found {len(chapters)} chapters in EPUB")
