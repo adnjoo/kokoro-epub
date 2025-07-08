@@ -13,6 +13,17 @@ from timers import Timer, estimate_total  # ⏱️ Import timing tools
 import re
 from PyPDF2 import PdfReader
 
+# TODO: begin code block - try without this
+import os
+import sys
+
+if getattr(sys, 'frozen', False):
+    # Running in a PyInstaller bundle
+    bundle_dir = sys._MEIPASS
+    os.environ['HF_HOME'] = bundle_dir
+    os.environ['HUGGINGFACE_HUB_CACHE'] = bundle_dir
+# TODO: end code block
+
 def process_epub(
     book_path,
     output_dir="output",
@@ -26,10 +37,12 @@ def process_epub(
     Convert an EPUB file to audio files (WAV) using Kokoro TTS.
     Each sufficiently long chapter becomes one or more audio files.
     """
+    print(f"process_epub called with: {book_path}, output_dir={output_dir}")
     os.makedirs(output_dir, exist_ok=True)
     pipeline = KPipeline(lang_code=lang_code)
     book = epub.read_epub(book_path)
     chapters = [item for item in book.items if item.get_type() == ITEM_DOCUMENT]
+    print(f"Found {len(chapters)} chapters in EPUB")
 
     estimated_chapters = [
         chapter for i, chapter in enumerate(chapters)
@@ -41,11 +54,11 @@ def process_epub(
     total_timer.start()
 
     for i, chapter in enumerate(chapters):
-        if i < start_chapter:
-            continue
         soup = BeautifulSoup(chapter.get_content(), 'html.parser')
         text = soup.get_text().strip()
+        print(f"Chapter {i}: '{chapter.get_name()}' length={len(text)}")
         if len(text) < 100:
+            print(f"Skipping chapter {i} (too short)")
             continue
         chapter_name = chapter.get_name()
         if progress_callback:
@@ -55,6 +68,7 @@ def process_epub(
         for j, (_, _, audio) in enumerate(pipeline(text, voice=voice, speed=1)):
             filename = f"{output_dir}/chapter_{i:02d}_{j}.wav"
             sf.write(filename, audio, 24000)
+            print(f"Wrote WAV file: {filename}")
             if chapter_callback:
                 chapter_callback(filename)
         chapter_timer.print_elapsed(f"✅ Done chapter {i}")
