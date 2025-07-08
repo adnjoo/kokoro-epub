@@ -45,22 +45,50 @@ async function main() {
   });
 
   // Split text into chunks
-  function splitText(text, maxLen = 1800) {
+  function splitTextBySentences(text, maxLen = 800) {
+    const sentences = text.match(/[^.!?]+[.!?]+[\s]*/g) || [text];
     const chunks = [];
-    let i = 0;
-    while (i < text.length) {
-      chunks.push(text.slice(i, i + maxLen));
-      i += maxLen;
+    let chunk = '';
+
+    for (const sentence of sentences) {
+      if (sentence.length > maxLen) {
+        // If there's content in chunk, push it and start fresh for this long sentence
+        if (chunk) {
+          chunks.push(chunk.trim() + ' ');
+          chunk = '';
+        }
+        // Now split the long sentence by words, always starting from an empty chunk
+        const words = sentence.split(/\s+/);
+        for (const word of words) {
+          if ((chunk + word + ' ').length > maxLen) {
+            if (chunk) chunks.push(chunk.trim() + ' ');
+            chunk = word + ' ';
+          } else {
+            chunk += word + ' ';
+          }
+        }
+      } else {
+        if ((chunk + sentence).length > maxLen) {
+          if (chunk) chunks.push(chunk.trim() + ' ');
+          chunk = sentence;
+        } else {
+          chunk += sentence;
+        }
+      }
     }
+    console.log(chunk);
+    if (chunk) chunks.push(chunk.trim() + ' ');
     return chunks;
   }
 
-  const textChunks = splitText(fullText);
+  // Seems like around 400 is the max length for TTS
+  const textChunks = splitTextBySentences(fullText, 400);
   const chunkFiles = [];
 
   for (let i = 0; i < textChunks.length; i++) {
     const chunk = textChunks[i];
-    console.log(`Generating audio for chunk ${i + 1}/${textChunks.length}`);
+    console.log(`Chunk ${i + 1} length: ${chunk.length}`);
+    console.log(`Generating audio for chunk ${i + 1}/${textChunks.length}:`, chunk.slice(0, 80).replace(/\n/g, ' '), '...');
     const audio = await tts.generate(chunk, { voice: 'af_heart', format: 'mp3' });
     const chunkPath = path.join(inputDir, `chunk_${i}.mp3`);
     await audio.save(chunkPath);
