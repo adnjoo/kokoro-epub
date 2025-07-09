@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ['app/pyqt_app.py'],
+    ['app/app.py'],
     pathex=['app'],
     binaries=[],
     datas=[
