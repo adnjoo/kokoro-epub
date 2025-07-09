@@ -4,7 +4,7 @@ soundfile
 pydub
 kokoro
 
-PyQt5
+PyQt6
 sounddevice
 
 PyPDF2

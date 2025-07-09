@@ -1,9 +1,10 @@
 import sys
 import os
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QProgressBar
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6 import QtCore
 # Import the refactored process_epub function
 from processor import process_epub, process_txt, process_pdf
 from ebooklib import epub, ITEM_DOCUMENT
@@ -106,7 +107,7 @@ class DropWidget(QWidget):
         self.resize(400, 250)
         layout = QVBoxLayout()
         self.label = QLabel("Drop an EPUB, TXT, or PDF file here to generate an audio book.")
-        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.label)
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
@@ -207,4 +208,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = DropWidget()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
