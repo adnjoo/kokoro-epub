@@ -31,7 +31,8 @@ def process_epub(
     voice='af_heart',
     start_chapter=0,
     progress_callback=None,
-    chapter_callback=None
+    chapter_callback=None,
+    enforce_min_length=True
 ):
     """
     Convert an EPUB file to audio files (WAV) using Kokoro TTS.
@@ -48,20 +49,25 @@ def process_epub(
     chapters = [item for item in book.items if item.get_type() == ITEM_DOCUMENT]
     print(f"Found {len(chapters)} chapters in EPUB")
 
-    estimated_chapters = [
-        chapter for i, chapter in enumerate(chapters)
-        if i >= start_chapter and len(BeautifulSoup(chapter.get_content(), 'html.parser').get_text().strip()) >= 100
-    ]
+    if enforce_min_length:
+        estimated_chapters = [
+            chapter for i, chapter in enumerate(chapters)
+            if i >= start_chapter and len(BeautifulSoup(chapter.get_content(), 'html.parser').get_text().strip()) >= 100
+        ]
+    else:
+        estimated_chapters = [chapter for i, chapter in enumerate(chapters) if i >= start_chapter]
     estimate_total(estimated_chapters, avg_seconds_per_chapter=15)
 
     total_timer = Timer()
     total_timer.start()
 
     for i, chapter in enumerate(chapters):
+        if i < start_chapter:
+            continue
         soup = BeautifulSoup(chapter.get_content(), 'html.parser')
         text = soup.get_text().strip()
         print(f"Chapter {i}: '{chapter.get_name()}' length={len(text)}")
-        if len(text) < 100:
+        if enforce_min_length and len(text) < 100:
             print(f"Skipping chapter {i} (too short)")
             continue
         chapter_name = chapter.get_name()
@@ -86,7 +92,8 @@ def process_txt(
     lang_code='a',
     voice='af_heart',
     progress_callback=None,
-    chunk_callback=None
+    chunk_callback=None,
+    enforce_min_length=True
 ):
     """
     Convert a TXT file to audio files (WAV) using Kokoro TTS.
@@ -100,8 +107,10 @@ def process_txt(
     text = text.replace('\r\n', '\n').replace('\r', '\n')
     # Replace single newlines (not part of double newline) with a space
     text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)
-    # Only include paragraphs with at least 100 characters; this will skip short quotes or poetry
-    paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if len(p.strip()) >= 100]
+    if enforce_min_length:
+        paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if len(p.strip()) >= 100]
+    else:
+        paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if p.strip()]
     estimate_total(paragraphs, avg_seconds_per_chapter=15)
 
     total_timer = Timer()
@@ -128,7 +137,8 @@ def process_pdf(
     lang_code='a',
     voice='af_heart',
     progress_callback=None,
-    chunk_callback=None
+    chunk_callback=None,
+    enforce_min_length=True
 ):
     """
     Convert a PDF file to audio files (WAV) using Kokoro TTS.
@@ -138,8 +148,10 @@ def process_pdf(
     pipeline = KPipeline(lang_code=lang_code)
     reader = PdfReader(pdf_path)
     pages = [page.extract_text() for page in reader.pages]
-    # Only include pages with at least 100 characters
-    valid_pages = [p.strip() for p in pages if p and len(p.strip()) >= 100]
+    if enforce_min_length:
+        valid_pages = [p.strip() for p in pages if p and len(p.strip()) >= 100]
+    else:
+        valid_pages = [p.strip() for p in pages if p and p.strip()]
     estimate_total(valid_pages, avg_seconds_per_chapter=15)
 
     total_timer = Timer()

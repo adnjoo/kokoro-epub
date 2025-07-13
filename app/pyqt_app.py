@@ -1,7 +1,7 @@
 import sys
 import os
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QProgressBar
+    QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QProgressBar, QCheckBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6 import QtCore
@@ -18,11 +18,12 @@ class Worker(QThread):
     progress_value = pyqtSignal(int)
     progress_max = pyqtSignal(int)
 
-    def __init__(self, file_path, output_dir):
+    def __init__(self, file_path, output_dir, enforce_min_length=True):
         super().__init__()
         self.file_path = file_path
         self.output_dir = output_dir
         self._is_stopped = False
+        self.enforce_min_length = enforce_min_length
 
     def run(self):
         ext = os.path.splitext(self.file_path)[1].lower()
@@ -49,7 +50,8 @@ class Worker(QThread):
                 process_epub(
                     self.file_path,
                     self.output_dir,
-                    progress_callback=progress_callback
+                    progress_callback=progress_callback,
+                    enforce_min_length=self.enforce_min_length
                 )
             elif ext == '.txt':
                 # Count paragraphs for progress bar
@@ -68,7 +70,8 @@ class Worker(QThread):
                 process_txt(
                     self.file_path,
                     self.output_dir,
-                    progress_callback=progress_callback
+                    progress_callback=progress_callback,
+                    enforce_min_length=self.enforce_min_length
                 )
             elif ext == '.pdf':
                 # Count valid pages for progress bar
@@ -87,7 +90,8 @@ class Worker(QThread):
                 process_pdf(
                     self.file_path,
                     self.output_dir,
-                    progress_callback=progress_callback
+                    progress_callback=progress_callback,
+                    enforce_min_length=self.enforce_min_length
                 )
             else:
                 raise Exception("Unsupported file type. Please use .epub, .txt, or .pdf.")
@@ -109,6 +113,10 @@ class DropWidget(QWidget):
         self.label = QLabel("Drop an EPUB, TXT, or PDF file here to generate an audio book.")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.label)
+        # Add checkbox for minimum text length enforcement
+        self.min_length_checkbox = QCheckBox("Enforce Minimum Text Length (100 chars)")
+        self.min_length_checkbox.setChecked(True)
+        layout.addWidget(self.min_length_checkbox)
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(False)
@@ -143,7 +151,9 @@ class DropWidget(QWidget):
             self.stop_btn.setEnabled(True)
             self.progress_bar.setValue(0)
             self.progress_bar.setVisible(True)
-            self.worker = Worker(file_path, self.output_dir)
+            # Pass checkbox state to Worker (to be wired to processing logic)
+            enforce_min_length = self.min_length_checkbox.isChecked()
+            self.worker = Worker(file_path, self.output_dir, enforce_min_length)
             self.worker.progress.connect(self.label.setText)
             self.worker.finished.connect(self.done)
             self.worker.progress_value.connect(self.progress_bar.setValue)
