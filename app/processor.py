@@ -24,6 +24,8 @@ if getattr(sys, 'frozen', False):
     os.environ['HUGGINGFACE_HUB_CACHE'] = bundle_dir
 # TODO: end code block
 
+MIN_TEXT_LENGTH = 100
+
 def process_epub(
     book_path,
     output_dir="output",
@@ -52,7 +54,7 @@ def process_epub(
     if enforce_min_length:
         estimated_chapters = [
             chapter for i, chapter in enumerate(chapters)
-            if i >= start_chapter and len(BeautifulSoup(chapter.get_content(), 'html.parser').get_text().strip()) >= 100
+            if i >= start_chapter and len(BeautifulSoup(chapter.get_content(), 'html.parser').get_text().strip()) >= MIN_TEXT_LENGTH
         ]
     else:
         estimated_chapters = [chapter for i, chapter in enumerate(chapters) if i >= start_chapter]
@@ -67,7 +69,7 @@ def process_epub(
         soup = BeautifulSoup(chapter.get_content(), 'html.parser')
         text = soup.get_text().strip()
         print(f"Chapter {i}: '{chapter.get_name()}' length={len(text)}")
-        if enforce_min_length and len(text) < 100:
+        if enforce_min_length and len(text) < MIN_TEXT_LENGTH:
             print(f"Skipping chapter {i} (too short)")
             continue
         chapter_name = chapter.get_name()
@@ -108,7 +110,7 @@ def process_txt(
     # Replace single newlines (not part of double newline) with a space
     text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)
     if enforce_min_length:
-        paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if len(p.strip()) >= 100]
+        paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if len(p.strip()) >= MIN_TEXT_LENGTH]
     else:
         paragraphs = [p.strip() for p in re.split(r'\n{2,}', text) if p.strip()]
     estimate_total(paragraphs, avg_seconds_per_chapter=15)
@@ -149,7 +151,7 @@ def process_pdf(
     reader = PdfReader(pdf_path)
     pages = [page.extract_text() for page in reader.pages]
     if enforce_min_length:
-        valid_pages = [p.strip() for p in pages if p and len(p.strip()) >= 100]
+        valid_pages = [p.strip() for p in pages if p and len(p.strip()) >= MIN_TEXT_LENGTH]
     else:
         valid_pages = [p.strip() for p in pages if p and p.strip()]
     estimate_total(valid_pages, avg_seconds_per_chapter=15)

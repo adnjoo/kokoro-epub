@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6 import QtCore
 # Import the refactored process_epub function
-from processor import process_epub, process_txt, process_pdf
+from processor import process_epub, process_txt, process_pdf, MIN_TEXT_LENGTH
 from ebooklib import epub, ITEM_DOCUMENT
 from bs4 import BeautifulSoup
 from merge_audio import merge_audio_files
@@ -114,7 +114,7 @@ class DropWidget(QWidget):
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.label)
         # Add checkbox for minimum text length enforcement
-        self.min_length_checkbox = QCheckBox("Enforce Minimum Text Length (100 chars)")
+        self.min_length_checkbox = QCheckBox(f"Enforce Minimum Text Length ({MIN_TEXT_LENGTH} chars)")
         self.min_length_checkbox.setChecked(True)
         layout.addWidget(self.min_length_checkbox)
         self.progress_bar = QProgressBar()
