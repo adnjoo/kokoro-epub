@@ -94,7 +94,7 @@ class Worker(QThread):
 class DropWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("EPUB/TXT/PDF to Audio (Kokoro TTS)")
+        self.setWindowTitle("kokoro-epub")
         self.setAcceptDrops(True)
         self.resize(400, 250)
         layout = QVBoxLayout()
