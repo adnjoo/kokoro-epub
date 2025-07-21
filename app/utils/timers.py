@@ -23,4 +23,4 @@ def estimate_total(chapters, avg_seconds_per_chapter=15):
     est_total = count * avg_seconds_per_chapter
     print(f"📖 Chapters to process: {count}")
     print(f"⏳ Estimated total time: {est_total:.2f} seconds ({est_total / 60:.2f} minutes)")
-    return count
+    return count 

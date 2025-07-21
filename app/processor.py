@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from kokoro import KPipeline
 import soundfile as sf
 import os
-from timers import Timer, estimate_total  # ⏱️ Import timing tools
+from utils.timers import Timer, estimate_total  # ⏱️ Import timing tools
 import re
 from PyPDF2 import PdfReader
 
@@ -34,7 +34,8 @@ def process_epub(
     start_chapter=0,
     progress_callback=None,
     chapter_callback=None,
-    enforce_min_length=True
+    enforce_min_length=True,
+    device=None
 ):
     """
     Convert an EPUB file to audio files (WAV) using Kokoro TTS.
@@ -42,8 +43,12 @@ def process_epub(
     """
     print(f"process_epub called with: {book_path}, output_dir={output_dir}")
     os.makedirs(output_dir, exist_ok=True)
+    if device is None:
+        # Auto-detect
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
     try:
-        pipeline = KPipeline(lang_code=lang_code)
+        pipeline = KPipeline(lang_code=lang_code, device=device)
     except Exception as e:
         print(f"Error initializing KPipeline: {e}")
         return
@@ -95,14 +100,19 @@ def process_txt(
     voice='af_heart',
     progress_callback=None,
     chunk_callback=None,
-    enforce_min_length=True
+    enforce_min_length=True,
+    device=None
 ):
     """
     Convert a TXT file to audio files (WAV) using Kokoro TTS.
     Each sufficiently long paragraph (split by blank lines) becomes one or more audio files.
     """
     os.makedirs(output_dir, exist_ok=True)
-    pipeline = KPipeline(lang_code=lang_code)
+    if device is None:
+        # Auto-detect
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    pipeline = KPipeline(lang_code=lang_code, device=device)
     with open(txt_path, 'r', encoding='utf-8') as f:
         text = f.read()
     # Normalize line endings
@@ -140,14 +150,19 @@ def process_pdf(
     voice='af_heart',
     progress_callback=None,
     chunk_callback=None,
-    enforce_min_length=True
+    enforce_min_length=True,
+    device=None
 ):
     """
     Convert a PDF file to audio files (WAV) using Kokoro TTS.
     Each sufficiently long page becomes one or more audio files.
     """
     os.makedirs(output_dir, exist_ok=True)
-    pipeline = KPipeline(lang_code=lang_code)
+    if device is None:
+        # Auto-detect
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    pipeline = KPipeline(lang_code=lang_code, device=device)
     reader = PdfReader(pdf_path)
     pages = [page.extract_text() for page in reader.pages]
     if enforce_min_length:

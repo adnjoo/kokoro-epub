@@ -1,7 +1,7 @@
 import sys
 import os
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QProgressBar, QCheckBox
+    QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QFileDialog, QProgressBar, QCheckBox, QComboBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6 import QtCore
@@ -18,12 +18,13 @@ class Worker(QThread):
     progress_value = pyqtSignal(int)
     progress_max = pyqtSignal(int)
 
-    def __init__(self, file_path, output_dir, enforce_min_length=True):
+    def __init__(self, file_path, output_dir, enforce_min_length=True, device=None):
         super().__init__()
         self.file_path = file_path
         self.output_dir = output_dir
         self._is_stopped = False
         self.enforce_min_length = enforce_min_length
+        self.device = device  # New
 
     def run(self):
         ext = os.path.splitext(self.file_path)[1].lower()
@@ -51,7 +52,8 @@ class Worker(QThread):
                     self.file_path,
                     self.output_dir,
                     progress_callback=progress_callback,
-                    enforce_min_length=self.enforce_min_length
+                    enforce_min_length=self.enforce_min_length,
+                    device=self.device
                 )
             elif ext == '.txt':
                 # Count paragraphs for progress bar
@@ -71,7 +73,8 @@ class Worker(QThread):
                     self.file_path,
                     self.output_dir,
                     progress_callback=progress_callback,
-                    enforce_min_length=self.enforce_min_length
+                    enforce_min_length=self.enforce_min_length,
+                    device=self.device
                 )
             elif ext == '.pdf':
                 # Count valid pages for progress bar
@@ -91,7 +94,8 @@ class Worker(QThread):
                     self.file_path,
                     self.output_dir,
                     progress_callback=progress_callback,
-                    enforce_min_length=self.enforce_min_length
+                    enforce_min_length=self.enforce_min_length,
+                    device=self.device
                 )
             else:
                 raise Exception("Unsupported file type. Please use .epub, .txt, or .pdf.")
@@ -117,6 +121,11 @@ class DropWidget(QWidget):
         self.min_length_checkbox = QCheckBox(f"Enforce Minimum Text Length ({MIN_TEXT_LENGTH} chars)")
         self.min_length_checkbox.setChecked(True)
         layout.addWidget(self.min_length_checkbox)
+        self.device_combo = QComboBox()
+        self.device_combo.addItem("Auto")  # Let code decide (default)
+        self.device_combo.addItem("CUDA (GPU)")
+        self.device_combo.addItem("CPU")
+        layout.addWidget(self.device_combo)
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(False)
@@ -153,7 +162,14 @@ class DropWidget(QWidget):
             self.progress_bar.setVisible(True)
             # Pass checkbox state to Worker (to be wired to processing logic)
             enforce_min_length = self.min_length_checkbox.isChecked()
-            self.worker = Worker(file_path, self.output_dir, enforce_min_length)
+            device_choice = self.device_combo.currentText()
+            if device_choice == "CUDA (GPU)":
+                device = "cuda"
+            elif device_choice == "CPU":
+                device = "cpu"
+            else:
+                device = None  # Auto
+            self.worker = Worker(file_path, self.output_dir, enforce_min_length, device)
             self.worker.progress.connect(self.label.setText)
             self.worker.finished.connect(self.done)
             self.worker.progress_value.connect(self.progress_bar.setValue)
