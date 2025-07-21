@@ -3,6 +3,13 @@
 from pydub import AudioSegment
 import os
 import re
+import shutil
+import sys
+
+if shutil.which("ffmpeg") is None:
+    print("Error: ffmpeg is not installed or not in your system PATH.")
+    print("Please install ffmpeg and ensure it is accessible from the command line.")
+    sys.exit(1)
 
 def natural_key(filename):
     """Sorts like: chapter_01_2.wav < chapter_01_10.wav"""
