@@ -33,69 +33,53 @@ class Worker(QThread):
             if ext == '.epub':
                 book = epub.read_epub(self.file_path)
                 chapters = [item for item in book.items if item.get_type() == ITEM_DOCUMENT]
-                total = sum(
-                    1 for i, chapter in enumerate(chapters)
+                valid_chapters = [
+                    chapter for chapter in chapters
                     if len(BeautifulSoup(chapter.get_content(), 'html.parser').get_text().strip()) >= 100
-                )
+                ]
+                total = len(valid_chapters)
                 self.progress_max.emit(total if total > 0 else 1)
-                self._current = 0
-
-                def progress_callback(msg):
-                    self.progress.emit(msg)
-                    if "Done chapter" in msg or "Done!" in msg:
-                        self._current += 1
-                        self.progress_value.emit(self._current)
-                    if self._is_stopped:
-                        raise Exception("Processing stopped by user.")
-
+                def progress_update(current):
+                    self.progress_value.emit(current)
                 process_epub(
                     self.file_path,
                     self.output_dir,
-                    progress_callback=progress_callback,
+                    progress_callback=self.progress.emit,
                     enforce_min_length=self.enforce_min_length,
-                    device=self.device
+                    device=self.device,
+                    progress_update=progress_update
                 )
             elif ext == '.txt':
-                # Count paragraphs for progress bar
                 with open(self.file_path, 'r', encoding='utf-8') as f:
                     text = f.read()
                 paragraphs = [p.strip() for p in text.split('\n\n') if len(p.strip()) >= 100]
-                self.progress_max.emit(len(paragraphs) if paragraphs else 1)
-                self._current = 0
-                def progress_callback(msg):
-                    self.progress.emit(msg)
-                    if "Done chunk" in msg or "Done!" in msg:
-                        self._current += 1
-                        self.progress_value.emit(self._current)
-                    if self._is_stopped:
-                        raise Exception("Processing stopped by user.")
+                total = len(paragraphs)
+                self.progress_max.emit(total if total > 0 else 1)
+                def progress_update(current):
+                    self.progress_value.emit(current)
                 process_txt(
                     self.file_path,
                     self.output_dir,
-                    progress_callback=progress_callback,
+                    progress_callback=self.progress.emit,
                     enforce_min_length=self.enforce_min_length,
-                    device=self.device
+                    device=self.device,
+                    progress_update=progress_update
                 )
             elif ext == '.pdf':
-                # Count valid pages for progress bar
                 from PyPDF2 import PdfReader
                 reader = PdfReader(self.file_path)
                 valid_pages = [p for p in (page.extract_text() for page in reader.pages) if p and len(p.strip()) >= 100]
-                self.progress_max.emit(len(valid_pages) if valid_pages else 1)
-                self._current = 0
-                def progress_callback(msg):
-                    self.progress.emit(msg)
-                    if "Done page" in msg or "Done!" in msg:
-                        self._current += 1
-                        self.progress_value.emit(self._current)
-                    if self._is_stopped:
-                        raise Exception("Processing stopped by user.")
+                total = len(valid_pages)
+                self.progress_max.emit(total if total > 0 else 1)
+                def progress_update(current):
+                    self.progress_value.emit(current)
                 process_pdf(
                     self.file_path,
                     self.output_dir,
-                    progress_callback=progress_callback,
+                    progress_callback=self.progress.emit,
                     enforce_min_length=self.enforce_min_length,
-                    device=self.device
+                    device=self.device,
+                    progress_update=progress_update
                 )
             else:
                 raise Exception("Unsupported file type. Please use .epub, .txt, or .pdf.")

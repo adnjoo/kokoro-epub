@@ -35,7 +35,8 @@ def process_epub(
     progress_callback=None,
     chapter_callback=None,
     enforce_min_length=True,
-    device=None
+    device=None,
+    progress_update=None
 ):
     """
     Convert an EPUB file to audio files (WAV) using Kokoro TTS.
@@ -57,25 +58,24 @@ def process_epub(
     print(f"Found {len(chapters)} chapters in EPUB")
 
     if enforce_min_length:
-        estimated_chapters = [
+        valid_chapters = [
             chapter for i, chapter in enumerate(chapters)
             if i >= start_chapter and len(BeautifulSoup(chapter.get_content(), 'html.parser').get_text().strip()) >= MIN_TEXT_LENGTH
         ]
     else:
-        estimated_chapters = [chapter for i, chapter in enumerate(chapters) if i >= start_chapter]
-    estimate_total(estimated_chapters, avg_seconds_per_chapter=15)
+        valid_chapters = [chapter for i, chapter in enumerate(chapters) if i >= start_chapter]
+    estimate_total(valid_chapters, avg_seconds_per_chapter=15)
 
     total_timer = Timer()
     total_timer.start()
 
+    valid_idx = 0
     for i, chapter in enumerate(chapters):
         if i < start_chapter:
             continue
         soup = BeautifulSoup(chapter.get_content(), 'html.parser')
         text = soup.get_text().strip()
-        print(f"Chapter {i}: '{chapter.get_name()}' length={len(text)}")
         if enforce_min_length and len(text) < MIN_TEXT_LENGTH:
-            print(f"Skipping chapter {i} (too short)")
             continue
         chapter_name = chapter.get_name()
         if progress_callback:
@@ -85,10 +85,12 @@ def process_epub(
         for j, (_, _, audio) in enumerate(pipeline(text, voice=voice, speed=1)):
             filename = f"{output_dir}/chapter_{i:02d}_{j}.wav"
             sf.write(filename, audio, 24000)
-            print(f"Wrote WAV file: {filename}")
             if chapter_callback:
                 chapter_callback(filename)
         chapter_timer.print_elapsed(f"✅ Done chapter {i}")
+        if progress_update:
+            progress_update(valid_idx + 1)  # 1-based
+        valid_idx += 1
     total_timer.print_elapsed("✅ All chapters")
     if progress_callback:
         progress_callback("✅ All chapters done!")
@@ -101,7 +103,8 @@ def process_txt(
     progress_callback=None,
     chunk_callback=None,
     enforce_min_length=True,
-    device=None
+    device=None,
+    progress_update=None
 ):
     """
     Convert a TXT file to audio files (WAV) using Kokoro TTS.
@@ -139,6 +142,8 @@ def process_txt(
             if chunk_callback:
                 chunk_callback(filename)
         chunk_timer.print_elapsed(f"✅ Done chunk {i}")
+        if progress_update:
+            progress_update(i + 1)  # 1-based
     total_timer.print_elapsed("✅ All chunks")
     if progress_callback:
         progress_callback("✅ All chunks done!")
@@ -151,7 +156,8 @@ def process_pdf(
     progress_callback=None,
     chunk_callback=None,
     enforce_min_length=True,
-    device=None
+    device=None,
+    progress_update=None
 ):
     """
     Convert a PDF file to audio files (WAV) using Kokoro TTS.
@@ -185,6 +191,8 @@ def process_pdf(
             if chunk_callback:
                 chunk_callback(filename)
         chunk_timer.print_elapsed(f"✅ Done page {i}")
+        if progress_update:
+            progress_update(i + 1)  # 1-based
     total_timer.print_elapsed("✅ All pages")
     if progress_callback:
         progress_callback("✅ All pages done!")
