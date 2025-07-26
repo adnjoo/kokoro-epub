@@ -103,7 +103,7 @@ class DropWidget(QWidget):
         layout.addWidget(self.label)
         # Add checkbox for minimum text length enforcement
         self.min_length_checkbox = QCheckBox(f"Enforce Minimum Text Length ({MIN_TEXT_LENGTH} chars)")
-        self.min_length_checkbox.setChecked(True)
+        self.min_length_checkbox.setChecked(False)
         layout.addWidget(self.min_length_checkbox)
         self.device_combo = QComboBox()
         self.device_combo.addItem("Auto")  # Let code decide (default)
