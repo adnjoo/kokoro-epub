@@ -82,8 +82,7 @@ def process_epub(
             progress_callback(f"🔊 Processing chapter {i}: {chapter_name}")
         chapter_timer = Timer()
         chapter_timer.start()
-        for j, (_, _, audio) in enumerate(pipeline(text, voice=voice, speed=1, split_pattern=r'\n{2,}')):
-            filename = f"{output_dir}/chapter_{i:02d}_{j}.wav"
+        # The split_pattern parameter uses the regex r'\n{2,}' to split the text into chunks at double (or more) newlines.
             sf.write(filename, audio, 24000)
             if chapter_callback:
                 chapter_callback(filename)
