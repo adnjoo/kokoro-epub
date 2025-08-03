@@ -84,6 +84,7 @@ def process_epub(
         chapter_timer = Timer()
         chapter_timer.start()
         for j, (_, _, audio) in enumerate(pipeline(paragraph, voice=voice, speed=1, split_pattern=PARAGRAPH_SPLIT_PATTERN)):
+            filename = f"{output_dir}/chapter_{i:02d}_{j}.wav"
             sf.write(filename, audio, 24000)
             if chapter_callback:
                 chapter_callback(filename)
