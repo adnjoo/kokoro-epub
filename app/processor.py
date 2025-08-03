@@ -135,7 +135,7 @@ def process_txt(
             progress_callback(f"🔊 Processing chunk {i}")
         chunk_timer = Timer()
         chunk_timer.start()
-        for j, (_, _, audio) in enumerate(pipeline(paragraph, voice=voice, speed=1, split_pattern=r'\n{2,}')):
+        for j, (_, _, audio) in enumerate(pipeline(paragraph, voice=voice, speed=1, split_pattern=PARAGRAPH_SPLIT_PATTERN)):
             filename = f"{output_dir}/chunk_{i:02d}_{j}.wav"
             sf.write(filename, audio, 24000)
             if chunk_callback:
