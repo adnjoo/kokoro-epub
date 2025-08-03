@@ -25,6 +25,7 @@ if getattr(sys, 'frozen', False):
 # TODO: end code block
 
 MIN_TEXT_LENGTH = 100
+PARAGRAPH_SPLIT_PATTERN = r'\n{2,}'
 
 def process_epub(
     book_path,
