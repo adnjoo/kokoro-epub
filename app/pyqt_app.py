@@ -98,38 +98,63 @@ class DropWidget(QWidget):
         self.setAcceptDrops(True)
         self.resize(400, 250)
         layout = QVBoxLayout()
+        
         self.label = QLabel("Drop an EPUB, TXT, or PDF file here to generate an audio book.")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.label)
-        # Add checkbox for minimum text length enforcement
-        self.min_length_checkbox = QCheckBox(f"Enforce Minimum Text Length ({MIN_TEXT_LENGTH} chars)")
+        
+        # Minimum text length checkbox
+        self.min_length_checkbox = QCheckBox(f"Require Minimum Text Length ({MIN_TEXT_LENGTH} chars)")
         self.min_length_checkbox.setChecked(False)
         layout.addWidget(self.min_length_checkbox)
+        
+        # Device label + combo
+        self.device_label = QLabel("Select Processing Device:")
+        layout.addWidget(self.device_label)
+        
         self.device_combo = QComboBox()
         self.device_combo.addItem("Auto")  # Let code decide (default)
         self.device_combo.addItem("CUDA (GPU)")
         self.device_combo.addItem("CPU")
         layout.addWidget(self.device_combo)
+        
+        # Bitrate label + combo
+        self.bitrate_label = QLabel("Select Output Bitrate:")
+        layout.addWidget(self.bitrate_label)
+        
+        self.bitrate_combo = QComboBox()
+        self.bitrate_combo.addItem("High Quality (128k)")
+        self.bitrate_combo.addItem("Small Size (64k)")
+        self.bitrate_combo.setCurrentIndex(1)  # Default to 64k
+        layout.addWidget(self.bitrate_combo)
+        
+        # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(False)
         layout.addWidget(self.progress_bar)
+        
+        # Buttons
         self.open_btn = QPushButton("Open Output Folder")
         self.open_btn.setEnabled(False)
         self.open_btn.clicked.connect(self.open_output)
         layout.addWidget(self.open_btn)
+        
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setEnabled(False)
         self.stop_btn.clicked.connect(self.stop_processing)
         layout.addWidget(self.stop_btn)
+        
         self.new_btn = QPushButton("New eBook")
         self.new_btn.setEnabled(False)
         self.new_btn.setVisible(False)
         self.new_btn.clicked.connect(self.reset_ui)
         layout.addWidget(self.new_btn)
+        
         self.setLayout(layout)
         self.output_dir = "output"
         self.worker = None
+
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -174,10 +199,12 @@ class DropWidget(QWidget):
         def merge_progress_callback(m):
             self.label.setText(m)
             QApplication.processEvents()
+        selected_bitrate = "128k" if self.bitrate_combo.currentIndex() == 0 else "64k"
         success = merge_audio_files(
             folder=self.output_dir,
             output_path=os.path.join(self.output_dir, "full_book.mp3"),
-            progress_callback=merge_progress_callback
+            progress_callback=merge_progress_callback,
+            bitrate=selected_bitrate
         )
         if success:
             # Delete all .wav files in the output directory

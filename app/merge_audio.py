@@ -16,7 +16,7 @@ def natural_key(filename):
     numbers = re.findall(r'\d+', filename)
     return list(map(int, numbers))  # e.g., [1, 2] from 'chapter_01_2.wav'
 
-def merge_audio_files(folder="output", output_path=None, progress_callback=None):
+def merge_audio_files(folder="output", output_path=None, progress_callback=None, bitrate="64k"):
     if output_path is None:
         output_path = os.path.join(folder, "full_book.mp3")
     # Get sorted .wav files
@@ -43,7 +43,7 @@ def merge_audio_files(folder="output", output_path=None, progress_callback=None)
         audio = AudioSegment.from_wav(path)
         combined += audio
     msg = f"\n✅ Combined audiobook saved to: {output_path}"
-    combined.export(output_path, format="mp3", bitrate="128k")
+    combined.export(output_path, format="mp3", bitrate=bitrate)
     if progress_callback:
         progress_callback(msg)
     else:
