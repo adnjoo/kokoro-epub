@@ -19,7 +19,7 @@ class Worker(QThread):
     progress_value = pyqtSignal(int)
     progress_max = pyqtSignal(int)
 
-    def __init__(self, file_path, output_dir, enforce_min_length=True, device=None, lang_code='e', voice='ef_dora'):
+    def __init__(self, file_path, output_dir, enforce_min_length=True, device=None, lang_code='a', voice='af_heart'):
         super().__init__()
         self.file_path = file_path
         self.output_dir = output_dir
@@ -122,8 +122,8 @@ class DropWidget(QWidget):
         layout.addWidget(self.lang_label)
 
         self.lang_combo = QComboBox()
-        self.lang_combo.addItem("English", ("e", "ef_dora"))  # (lang_code, voice)
-        self.lang_combo.addItem("Spanish", ("a", "af_heart"))
+        self.lang_combo.addItem("English", ("a", "af_heart"))  # (lang_code, voice)
+        self.lang_combo.addItem("Spanish", ("e", "ef_dora"))
         layout.addWidget(self.lang_combo)
 
         # Device selection
