@@ -13,16 +13,9 @@ from utils.timers import Timer, estimate_total  # ⏱️ Import timing tools
 import re
 from PyPDF2 import PdfReader
 
-# TODO: begin code block - try without this
-import os
-import sys
-
-if getattr(sys, 'frozen', False):
-    # Running in a PyInstaller bundle
-    bundle_dir = sys._MEIPASS
-    os.environ['HF_HOME'] = bundle_dir
-    os.environ['HUGGINGFACE_HUB_CACHE'] = bundle_dir
-# TODO: end code block
+# Language and Voice Defaults
+DEFAULT_LANG_CODE = 'e'       # 'e' for English, 'a' for Spanish
+DEFAULT_VOICE = 'ef_dora'     # English female voice
 
 MIN_TEXT_LENGTH = 100
 SPLIT_PATTERN = r'\n{2,}'  # Split on double newlines for all formats
@@ -30,8 +23,8 @@ SPLIT_PATTERN = r'\n{2,}'  # Split on double newlines for all formats
 def process_epub(
     book_path,
     output_dir="output",
-    lang_code='a',
-    voice='af_heart',
+    lang_code=DEFAULT_LANG_CODE,
+    voice=DEFAULT_VOICE,
     start_chapter=0,
     progress_callback=None,
     chapter_callback=None,
@@ -99,8 +92,8 @@ def process_epub(
 def process_txt(
     txt_path,
     output_dir="output",
-    lang_code='a',
-    voice='af_heart',
+    lang_code=DEFAULT_LANG_CODE,
+    voice=DEFAULT_VOICE,
     progress_callback=None,
     chunk_callback=None,
     enforce_min_length=True,
@@ -152,8 +145,8 @@ def process_txt(
 def process_pdf(
     pdf_path,
     output_dir="output",
-    lang_code='a',
-    voice='af_heart',
+    lang_code=DEFAULT_LANG_CODE,
+    voice=DEFAULT_VOICE,
     progress_callback=None,
     chunk_callback=None,
     enforce_min_length=True,
@@ -203,7 +196,7 @@ if __name__ == "__main__":
     process_epub(
         book_path="input/gift.epub",
         output_dir="output",
-        lang_code='a',
-        voice='af_heart'
+        lang_code=DEFAULT_LANG_CODE,
+        voice=DEFAULT_VOICE
     )
 
