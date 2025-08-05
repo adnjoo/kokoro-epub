@@ -14,8 +14,8 @@ import re
 from PyPDF2 import PdfReader
 
 # Language and Voice Defaults
-DEFAULT_LANG_CODE = 'e'       # 'e' for English, 'a' for Spanish
-DEFAULT_VOICE = 'ef_dora'     # English female voice
+DEFAULT_LANG_CODE = 'a'       # 'a' for English, 'e' for Spanish
+DEFAULT_VOICE = 'af_heart'     # English female voice
 
 MIN_TEXT_LENGTH = 100
 SPLIT_PATTERN = r'\n{2,}'  # Split on double newlines for all formats
