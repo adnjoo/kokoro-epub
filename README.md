@@ -33,6 +33,12 @@ Spanish Example:
 - The PyQt app lets you choose CPU or GPU (CUDA) for processing if you have an NVIDIA GPU and CUDA-enabled PyTorch installed. CUDA is much faster than CPU.
 - `ffmpeg` is required for audio merging. On Windows, one way to install it is with `winget`.
 
+# Docker
+```bash
+docker build -t kokoro-cuda-test .
+docker run --gpus all kokoro-cuda-test
+```
+
 ## License
 
 MIT License. See [LICENSE.md](./LICENSE.md).
