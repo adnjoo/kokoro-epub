@@ -172,6 +172,7 @@ class DropWidget(QWidget):
         self.setLayout(layout)
         self.output_dir = "output"
         self.worker = None
+        self.file_path = None  # CHANGED: keep dropped file path for naming
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -181,6 +182,7 @@ class DropWidget(QWidget):
         file_path = event.mimeData().urls()[0].toLocalFile()
         ext = os.path.splitext(file_path)[1].lower()
         if ext in ['.epub', '.txt', '.pdf']:
+            self.file_path = file_path  # CHANGED: store for later use
             self.label.setText("Processing...")
             self.open_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
@@ -219,7 +221,6 @@ class DropWidget(QWidget):
         self.open_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.progress_bar.setVisible(False)
-        self.worker = None
 
         # Automatically merge audio files
         self.label.setText("Merging audio files...")
@@ -228,9 +229,14 @@ class DropWidget(QWidget):
             QApplication.processEvents()
 
         selected_bitrate = "128k" if self.bitrate_combo.currentIndex() == 0 else "64k"
+
+        # CHANGED: name MP3 after the dropped file (epub/txt/pdf base name)
+        base_name = os.path.splitext(os.path.basename(self.file_path or "audiobook"))[0]
+        output_mp3 = os.path.join(self.output_dir, f"{base_name}.mp3")
+
         success = merge_audio_files(
             folder=self.output_dir,
-            output_path=os.path.join(self.output_dir, "full_book.mp3"),
+            output_path=output_mp3,  # CHANGED
             progress_callback=merge_progress_callback,
             bitrate=selected_bitrate
         )
@@ -242,13 +248,15 @@ class DropWidget(QWidget):
                     os.remove(wav_file)
                 except Exception as e:
                     print(f"Failed to delete {wav_file}: {e}")
-            self.label.setText("Merge complete! WAV files deleted. See full_book.mp3 in output folder.")
+            self.label.setText(f"Merge complete! WAV files deleted. See {os.path.basename(output_mp3)} in output folder.")
             self.new_btn.setEnabled(True)
             self.new_btn.setVisible(True)
         else:
             self.label.setText("No WAV files found to merge.")
             self.new_btn.setEnabled(True)
             self.new_btn.setVisible(True)
+
+        self.worker = None  # moved after we used it
 
     def open_output(self):
         QFileDialog.getOpenFileName(self, "Open Output Folder", self.output_dir)
