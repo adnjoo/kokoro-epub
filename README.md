@@ -38,8 +38,11 @@ Spanish Example:
 
 # Docker
 ```bash
-docker build -t kokoro-cuda-test .
-docker run --gpus all kokoro-cuda-test
+docker run --rm \
+  -v "$PWD/app/input:/app/input" \
+  -v "$PWD/output:/app/output" \
+  kokoro-epub \
+  python app/cli.py epub input/looking_glass.epub --out output
 ```
 
 ## Related Projects
