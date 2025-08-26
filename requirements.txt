@@ -1,9 +1,7 @@
+gradio>=4.44.0
+kokoro
+torch       # CPU build is fine on Spaces; CUDA will be used if available
 ebooklib
 beautifulsoup4
 soundfile
-pydub
-kokoro
-
-PyQt6
-sounddevice
-PyPDF2
+pydub       # optional, for MP3 merge (needs system ffmpeg)

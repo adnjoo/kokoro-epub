@@ -1,12 +1,13 @@
 ---
-title: Kokoro EPUB to Audiobook
-emoji: 🎧
-colorFrom: blue
-colorTo: indigo
+title: Kokoro Epub
+emoji: 💻
+colorFrom: red
+colorTo: gray
 sdk: gradio
-sdk_version: "4.44.0"   # (or latest Gradio version you want)
+sdk_version: 5.44.0
 app_file: app.py
 pinned: false
+short_description: epub 2 mp3
 ---
 
 # kokoro-epub
@@ -14,13 +15,10 @@ pinned: false
 > [!IMPORTANT]
 **This tool is intended for use with non-DRM, legally acquired eBooks only.** <br>
 The authors are not responsible for any misuse of this software or any resulting legal consequences. <br>
-Use this tool responsibly and in accordance with all applicable laws.
 
-Convert EPUB, TXT, or PDF files to audio using Python and PyQt.
+Convert EPUB to audiobook using Python.
 
-Works on **Windows** and **macOS**.
-
-![Screenshot](assets/20250810.png)
+![Screenshot](public/20250826.png)
 
 ## Quick Start
 
@@ -31,29 +29,13 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Run
-cd app
-python pyqt_app.py
+python app.py
 ```
 
 ## Sample Output
 
 <video src='https://github.com/user-attachments/assets/cd229d05-e59a-4e91-becf-4b3de1859607
 ' width=180></video>
-
-- The PyQt app lets you choose CPU or GPU (CUDA) for processing if you have an NVIDIA GPU and CUDA-enabled PyTorch installed. CUDA is much faster than CPU.
-- `ffmpeg` is required for audio merging. On Windows, one way to install it is with `winget`.
-
-## Docker
-
-```bash
-docker build -t kokoro-epub .
-
-docker run --rm \
-  -v "$PWD/app/input:/app/input" \
-  -v "$PWD/app/output:/app/output" \
-  kokoro-epub \
-  python app/cli.py epub input/meta.epub --out /app/output --merge
-```
 
 ## Related Projects
 
