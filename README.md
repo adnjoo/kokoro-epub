@@ -32,6 +32,12 @@ pip install -r requirements.txt
 python app.py
 ```
 
+### GPU Torch
+
+```bash
+ pip install --upgrade torch --index-url https://download.pytorch.org/whl/cu128
+ ```
+
 ## Sample Output
 
 <video src='https://github.com/user-attachments/assets/cd229d05-e59a-4e91-becf-4b3de1859607

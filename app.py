@@ -10,6 +10,9 @@ from bs4 import BeautifulSoup
 from kokoro import KPipeline
 import soundfile as sf
 
+# Torch
+import torch
+
 # Optional merge to MP3 (requires ffmpeg on the system)
 try:
     from pydub import AudioSegment
@@ -70,10 +73,16 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
 
         # pick device automatically
         try:
-            import torch
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-        except Exception:
+            if torch.cuda.is_available():
+                device = "cuda"
+                logs += f"\n✅ CUDA available: {torch.cuda.get_device_name(0)} (memory {torch.cuda.get_device_properties(0).total_memory // (1024**2)} MB)"
+            else:
+                device = "cpu"
+                logs += "\n CUDA not available, using CPU."
+        except Exception as e:
             device = "cpu"
+            logs += f"\n torch not found or error checking CUDA: {e}"
+
 
         logs += f"\n🚀 Initializing Kokoro (device={device})…"
         yield None, logs
@@ -155,4 +164,9 @@ with gr.Blocks(title="EPUB → MP3 (Kokoro)") as demo:
     )
 
 if __name__ == "__main__":
+    print("Compiled CUDA version:", torch.version.cuda)
+    print("Is CUDA available?:", torch.cuda.is_available())
+    print("Current CUDA device index:", torch.cuda.current_device())
+    print("Current CUDA device name:", torch.cuda.get_device_name(0))
+
     demo.launch()
