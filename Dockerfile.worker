@@ -1,0 +1,42 @@
+# Dockerfile.worker
+# CUDA runtime base. (12.2 runtime pairs fine with PyTorch cu121 wheels.)
+FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# System deps: Python, ffmpeg (for pydub), libsndfile (for soundfile), and basics
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv \
+    ffmpeg \
+    libsndfile1 \
+    ca-certificates curl git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy just requirements first (better layer caching)
+COPY requirements.txt /app/requirements.txt
+
+# (A) Install PyTorch with CUDA wheels first (faster failure if CUDA issues)
+#     If you want CPU-only builds, comment this line and let regular pip resolve.
+RUN pip3 install --no-cache-dir --upgrade pip
+# Use the official CUDA 12.1 wheel index (works on 12.2 runtime)
+RUN pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
+    torch torchvision torchaudio
+
+# (B) Install the rest of project requirements
+RUN pip3 install --no-cache-dir -r /app/requirements.txt
+
+# Copy project files
+COPY . /app
+
+# Default output dir
+RUN mkdir -p /data/output
+
+# Run the CLI by default (override with docker run args)
+# Example:
+#   docker run --gpus all -v $PWD/data:/data kokoro-worker \
+#       --input /data/input/book.epub --outdir /data/output --device cuda
+ENTRYPOINT ["python3", "cli.py"]
