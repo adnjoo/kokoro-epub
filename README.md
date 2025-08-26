@@ -40,9 +40,9 @@ Spanish Example:
 ```bash
 docker run --rm \
   -v "$PWD/app/input:/app/input" \
-  -v "$PWD/output:/app/output" \
+  -v "$PWD/app/output:/app/output" \
   kokoro-epub \
-  python app/cli.py epub input/looking_glass.epub --out output
+  python app/cli.py epub input/metamorphosis.epub --out /app/output
 ```
 
 ## Related Projects
