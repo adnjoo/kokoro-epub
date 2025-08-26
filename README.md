@@ -42,7 +42,7 @@ docker run --rm \
   -v "$PWD/app/input:/app/input" \
   -v "$PWD/app/output:/app/output" \
   kokoro-epub \
-  python app/cli.py epub input/metamorphosis.epub --out /app/output
+  python app/cli.py epub input/meta.epub --out /app/output --merge
 ```
 
 ## Related Projects
