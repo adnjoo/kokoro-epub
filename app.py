@@ -166,7 +166,10 @@ with gr.Blocks(title="EPUB → MP3 (Kokoro)") as demo:
 if __name__ == "__main__":
     print("Compiled CUDA version:", torch.version.cuda)
     print("Is CUDA available?:", torch.cuda.is_available())
-    print("Current CUDA device index:", torch.cuda.current_device())
-    print("Current CUDA device name:", torch.cuda.get_device_name(0))
+    if torch.cuda.is_available():
+        print("Current CUDA device index:", torch.cuda.current_device())
+        print("Current CUDA device name:", torch.cuda.get_device_name(0))
+    else:
+        print("CUDA is not available. Skipping device info.")
 
     demo.launch()
