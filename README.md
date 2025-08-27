@@ -34,9 +34,15 @@ python app.py
 
 ### GPU Torch
 
+Kafka - Meta 25152 words
+
+5060 Ti 16GB - ETA 194s | WPS 129.6
+vs
+CPU - ?
+
 ```bash
  pip install --upgrade torch --index-url https://download.pytorch.org/whl/cu128
- ```
+```
 
 ## Sample Output
 

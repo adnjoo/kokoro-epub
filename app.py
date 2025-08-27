@@ -1,5 +1,5 @@
 import gradio as gr
-import os, re, tempfile, shutil
+import os, re, tempfile, shutil, time
 from pathlib import Path
 
 # EPUB parsing + text cleanup
@@ -34,7 +34,6 @@ def _extract_epub_chapters(epub_path: str):
         if item.get_type() == ITEM_DOCUMENT:
             soup = BeautifulSoup(item.get_content(), "html.parser")
             text = soup.get_text(separator="\n").strip()
-            # normalize: single newlines -> space (keep double newlines as paragraph breaks)
             text = text.replace("\r\n", "\n").replace("\r", "\n")
             text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
             if len(text) >= MIN_TEXT_LENGTH:
@@ -58,6 +57,8 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
         yield None, "Please upload an EPUB."
         return
 
+    start_time = time.time()   # 🕒 start stopwatch once
+
     workdir = tempfile.mkdtemp(prefix="kokoro_epub_")
     wav_dir = Path(workdir) / "wavs"
     wav_dir.mkdir(parents=True, exist_ok=True)
@@ -71,18 +72,16 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
             yield None, "No sufficiently long chapters found (MIN_TEXT_LENGTH=100)."
             return
 
-        # pick device automatically
         try:
             if torch.cuda.is_available():
                 device = "cuda"
-                logs += f"\n✅ CUDA available: {torch.cuda.get_device_name(0)} (memory {torch.cuda.get_device_properties(0).total_memory // (1024**2)} MB)"
+                logs += f"\n✅ CUDA available: {torch.cuda.get_device_name(0)}"
             else:
                 device = "cpu"
                 logs += "\n CUDA not available, using CPU."
         except Exception as e:
             device = "cpu"
-            logs += f"\n torch not found or error checking CUDA: {e}"
-
+            logs += f"\n torch error checking CUDA: {e}"
 
         logs += f"\n🚀 Initializing Kokoro (device={device})…"
         yield None, logs
@@ -94,9 +93,9 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
         total = len(chapters)
 
         for ci, chapter in enumerate(chapters):
-            # ✅ progress bar update
             progress((ci + 1) / total, desc=f"Processing chapter {ci+1}/{total}")
-            logs += f"\n🔊 Chapter {ci+1}/{total}"
+            elapsed = time.time() - start_time
+            logs += f"\n🔊 Chapter {ci+1}/{total} (elapsed {elapsed:.2f}s)"
             yield None, logs
 
             for _, _, audio in pipeline(
@@ -110,16 +109,19 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
                 wav_paths.append(str(wav_path))
                 part_idx += 1
 
-        # Try to merge to MP3; else zip WAVs
         out_dir = Path(workdir)
         out_mp3 = out_dir / "audiobook.mp3"
         if _merge_to_mp3(wav_paths, str(out_mp3)):
             logs += f"\n✅ MP3 created ({out_mp3.name})."
+            total_time = time.time() - start_time
+            logs += f"\n⏱️ Total time: {total_time:.2f} seconds"
             yield str(out_mp3), logs
         else:
             zip_base = out_dir / "audiobook_wavs"
             zip_path = shutil.make_archive(str(zip_base), "zip", wav_dir)
+            total_time = time.time() - start_time
             logs += "\nℹ️ ffmpeg not found — returning WAVs as ZIP."
+            logs += f"\n⏱️ Total time: {total_time:.2f} seconds"
             yield zip_path, logs
 
     except Exception as e:
@@ -142,7 +144,7 @@ with gr.Blocks(title="EPUB → MP3 (Kokoro)") as demo:
             label="Voice",
             value=DEFAULT_VOICE,
             choices=[
-                "af_heart",  # popular English female
+                "af_heart",
                 "af_alloy",
                 "af_bella",
                 "af_rose",
