@@ -4,25 +4,26 @@ from bs4 import BeautifulSoup
 def extract_chapters(epub_path):
     book = epub.read_epub(epub_path)
     chapters = []
-    for item in book.items:
+    for idref, _ in book.spine:
+        item = book.get_item_with_id(idref)
         if item.get_type() == ITEM_DOCUMENT:
             soup = BeautifulSoup(item.get_content(), "html.parser")
             text = soup.get_text().strip()
             if not text:
                 continue
 
+            # first heading or fallback to file name
             heading = soup.find(["h1", "h2", "h3"])
             if heading and heading.get_text(strip=True):
                 title = heading.get_text(strip=True)
-            elif soup.title and soup.title.string:
-                title = soup.title.string.strip()
             else:
-                title = f"Section {len(chapters)+1}"
+                title = item.file_name
 
             chapters.append((title, text))
     return chapters
 
+
 if __name__ == "__main__":
-    chapters = extract_chapters("public/meta.epub")
+    chapters = extract_chapters("../public/meta.epub")
     for i, (title, text) in enumerate(chapters, 1):
         print(f"{i}. {title} ({len(text.split())} words)")

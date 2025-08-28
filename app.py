@@ -3,7 +3,7 @@ import os, re, tempfile, shutil, time
 from pathlib import Path
 
 # EPUB parsing
-from extract_chapters import extract_chapters
+from utils.extract_chapters import extract_chapters
 
 # TTS + audio I/O
 from kokoro import KPipeline
@@ -42,8 +42,10 @@ def list_chapter_titles(epub_file):
     if epub_file is None:
         return gr.update(choices=[])
     chapters = extract_chapters(epub_file.name)
-    titles = [t for (t, _) in chapters]
+    # show word counts
+    titles = [f"{t} ({len(txt.split())} words)" for (t, txt) in chapters]
     return gr.update(choices=titles, value=titles)  # pre-select all
+
 
 # ---------------- MAIN PIPELINE ---------------- #
 
@@ -67,9 +69,13 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
             yield None, "No chapters found."
             return
 
-        # Filter by user selection
+        # Filter by user selection (with word counts in labels)
         if selected_titles:
-            chapters = [(t, txt) for (t, txt) in chapters if t in selected_titles]
+            chapters = [
+                (t, txt)
+                for (t, txt) in chapters
+                if f"{t} ({len(txt.split())} words)" in selected_titles
+            ]
 
         # Pick device
         try:
@@ -96,7 +102,7 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
         for ci, (title, text) in enumerate(chapters):
             progress((ci + 1) / total, desc=f"Processing {title} ({ci+1}/{total})")
             elapsed = time.time() - start_time
-            logs += f"\n🔊 {title} ({ci+1}/{total}) (elapsed {elapsed:.2f}s)"
+            logs += f"\n🔊 {title} ({ci+1}/{total}) – {len(text.split())} words (elapsed {elapsed:.2f}s)"
             yield None, logs
 
             for _, _, audio in pipeline(
@@ -106,7 +112,7 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
                 split_pattern=SPLIT_PATTERN,
             ):
                 safe_title = re.sub(r"[^a-zA-Z0-9]+", "_", title)[:30]
-                wav_path = wav_dir / f"part_{ci:03d}_{safe_title}.wav"
+                wav_path = wav_dir / f"part_{part_idx:05d}_{safe_title}.wav"
                 sf.write(str(wav_path), audio, SAMPLE_RATE)
                 wav_paths.append(str(wav_path))
                 part_idx += 1
