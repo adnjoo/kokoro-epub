@@ -1,73 +1,33 @@
 import gradio as gr
 import os, re, tempfile, shutil, time
 from pathlib import Path
-
-# EPUB parsing
-from utils.extract_chapters import extract_chapters
-
-# TTS + audio I/O
 from kokoro import KPipeline
 import soundfile as sf
-
-# Torch
 import torch
 
-# Optional merge to MP3 (requires ffmpeg on the system)
-try:
-    from pydub import AudioSegment
-    HAVE_PYDUB = True
-except Exception:
-    HAVE_PYDUB = False
+from utils import (
+    extract_chapters,
+    merge_to_mp3,
+    merge_to_m4b,
+    chapter_duration_ms,
+    write_chapters_metadata,
+)
 
-SPLIT_PATTERN = r"\n{2,}"      # split on blank-line paragraphs
+SPLIT_PATTERN = r"\n{2,}"
 SAMPLE_RATE = 24000
-DEFAULT_LANG = "a"             # Kokoro English
-DEFAULT_VOICE = "af_heart"     # Kokoro English female
-
-
-# ---------------- HELPERS ---------------- #
-
-def _merge_to_mp3(wav_paths, out_mp3_path, bitrate="64k"):
-    """Merge WAVs into a single MP3 using pydub/ffmpeg."""
-    if not HAVE_PYDUB or shutil.which("ffmpeg") is None:
-        return False
-    combined = AudioSegment.silent(duration=0)
-    for w in wav_paths:
-        combined += AudioSegment.from_wav(w)
-    combined.export(out_mp3_path, format="mp3", bitrate=bitrate)
-    return True
-
-
-def _write_chapters_metadata(chapter_durations, out_txt):
-    """Write ffmpeg-style chapters.txt from [(title, dur_ms), ...]."""
-    offset = 0
-    with open(out_txt, "w", encoding="utf-8") as f:
-        f.write(";FFMETADATA1\n")
-        for title, dur in chapter_durations:
-            start = offset
-            end = offset + dur
-            f.write("[CHAPTER]\n")
-            f.write("TIMEBASE=1/1000\n")
-            f.write(f"START={start}\n")
-            f.write(f"END={end}\n")
-            f.write(f"title={title}\n\n")
-            offset = end
-
-
-def list_chapter_titles(epub_file):
-    if epub_file is None:
-        return gr.update(choices=[])
-    chapters = extract_chapters(epub_file.name)
-    titles = [f"{t} ({len(txt.split())} words)" for (t, txt) in chapters]
-    return gr.update(choices=titles, value=titles)
+DEFAULT_LANG = "a"
+DEFAULT_VOICE = "af_heart"
 
 
 # ---------------- MAIN PIPELINE ---------------- #
 
-def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress()):
-    """Convert EPUB chapters into audiobook MP3, filtering by user selection."""
+def epub_to_audio(epub_file, voice, speed, selected_titles, format_choice, progress=gr.Progress()):
     if epub_file is None:
-        yield None, None, "Please upload an EPUB."
+        yield (
+            gr.update(value=None, visible=False),  # MP3
+            gr.update(value=None, visible=False),  # M4B
+            "Please upload an EPUB."
+        )
         return
 
     start_time = time.time()
@@ -76,12 +36,20 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
     wav_dir.mkdir(parents=True, exist_ok=True)
 
     logs = "🔎 Reading EPUB…"
-    yield None, None, logs
+    yield (
+        gr.update(value=None, visible=False),
+        gr.update(value=None, visible=False),
+        logs
+    )
 
     try:
         chapters = extract_chapters(epub_file.name)
         if not chapters:
-            yield None, None, "No chapters found."
+            yield (
+                gr.update(value=None, visible=False),
+                gr.update(value=None, visible=False),
+                "No chapters found."
+            )
             return
 
         if selected_titles:
@@ -91,7 +59,7 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
                 if f"{t} ({len(txt.split())} words)" in selected_titles
             ]
 
-        # Pick device
+        # device
         try:
             if torch.cuda.is_available():
                 device = "cuda"
@@ -104,20 +72,27 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
             logs += f"\n torch error checking CUDA: {e}"
 
         logs += f"\n🚀 Initializing Kokoro (device={device})…"
-        yield None, None, logs
+        yield (
+            gr.update(value=None, visible=False),
+            gr.update(value=None, visible=False),
+            logs
+        )
 
         pipeline = KPipeline(lang_code=DEFAULT_LANG, device=device)
 
         wav_paths = []
+        chapter_durations = []
         part_idx = 0
         total = len(chapters)
-        chapter_durations = []
 
-        # Generate audio per chapter
         for ci, (title, text) in enumerate(chapters):
             chapter_start = time.time()
             logs += f"\n🔊 Starting {title} ({ci+1}/{total}) – {len(text.split())} words"
-            yield None, None, logs
+            yield (
+                gr.update(value=None, visible=False),
+                gr.update(value=None, visible=False),
+                logs
+            )
 
             chapter_wavs = []
             for _, _, audio in pipeline(
@@ -133,96 +108,109 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
                 chapter_wavs.append(str(wav_path))
                 part_idx += 1
 
-            if HAVE_PYDUB:
-                dur_ms = sum(len(AudioSegment.from_wav(w)) for w in chapter_wavs)
+            if chapter_wavs:
+                dur_ms = chapter_duration_ms(chapter_wavs)
                 chapter_durations.append((title, dur_ms))
 
-            chapter_elapsed = time.time() - chapter_start
-            logs += f"\n✅ Finished {title} in {chapter_elapsed:.2f}s"
-            yield None, None, logs
+            logs += f"\n✅ Finished {title} in {time.time() - chapter_start:.2f}s"
+            yield (
+                gr.update(value=None, visible=False),
+                gr.update(value=None, visible=False),
+                logs
+            )
 
-        # Merge to MP3
+        # outputs
         out_dir = Path(workdir)
         base_name = Path(epub_file.name).stem
-        out_name = f"{base_name}_{voice}.mp3"
-        out_mp3 = out_dir / out_name
-        chapters_txt = None
+        mp3_path = out_dir / f"{base_name}_{voice}.mp3"
+        m4b_path = out_dir / f"{base_name}_{voice}.m4b"
+        chapters_txt = out_dir / f"{base_name}_chapters.txt" if chapter_durations else None
 
-        if _merge_to_mp3(wav_paths, str(out_mp3)):
-            logs += f"\n✅ MP3 created ({out_mp3.name})."
+        if chapter_durations:
+            write_chapters_metadata(chapter_durations, chapters_txt)
+            logs += f"\n📝 Chapters metadata saved ({chapters_txt.name})."
 
-            if chapter_durations:
-                chapters_txt = out_dir / f"{base_name}_chapters.txt"
-                _write_chapters_metadata(chapter_durations, chapters_txt)
-                logs += f"\n📝 Chapters metadata saved ({chapters_txt.name})."
+        if format_choice == "MP3":
+            if merge_to_mp3(wav_paths, str(mp3_path)):
+                logs += f"\n✅ MP3 created ({mp3_path.name})."
+                logs += f"\n⏱️ Total time: {time.time() - start_time:.2f}s"
+                yield (
+                    gr.update(value=str(mp3_path), visible=True),
+                    gr.update(value=None, visible=False),
+                    logs
+                )
+            else:
+                zip_base = out_dir / "audiobook_wavs"
+                zip_path = shutil.make_archive(str(zip_base), "zip", wav_dir)
+                logs += "\nℹ️ ffmpeg not found — returning WAVs as ZIP."
+                yield (
+                    gr.update(value=zip_path, visible=True),
+                    gr.update(value=None, visible=False),
+                    logs
+                )
 
-            total_time = time.time() - start_time
-            logs += f"\n⏱️ Total time: {total_time:.2f} seconds"
-            yield str(out_mp3), str(chapters_txt) if chapters_txt else None, logs
-        else:
-            zip_base = out_dir / "audiobook_wavs"
-            zip_path = shutil.make_archive(str(zip_base), "zip", wav_dir)
-            total_time = time.time() - start_time
-            logs += "\nℹ️ ffmpeg not found — returning WAVs as ZIP."
-            logs += f"\n⏱️ Total time: {total_time:.2f} seconds"
-            yield zip_path, None, logs
+        elif format_choice == "M4B":
+            if merge_to_m4b(wav_paths, str(m4b_path), chapters_txt):
+                logs += f"\n📚 M4B created ({m4b_path.name})."
+                logs += f"\n⏱️ Total time: {time.time() - start_time:.2f}s"
+                yield (
+                    gr.update(value=None, visible=False),
+                    gr.update(value=str(m4b_path), visible=True),
+                    logs
+                )
+            else:
+                zip_base = out_dir / "audiobook_wavs"
+                zip_path = shutil.make_archive(str(zip_base), "zip", wav_dir)
+                logs += "\nℹ️ ffmpeg not found — returning WAVs as ZIP."
+                yield (
+                    gr.update(value=zip_path, visible=True),
+                    gr.update(value=None, visible=False),
+                    logs
+                )
 
     except Exception as e:
-        yield None, None, f"❌ Error: {e}"
+        yield (
+            gr.update(value=None, visible=False),
+            gr.update(value=None, visible=False),
+            f"❌ Error: {e}"
+        )
 
 
 # ---------------- GRADIO UI ---------------- #
 
-with gr.Blocks(title="BookBearAI — Free EPUB → MP3") as demo:
-    gr.Markdown(
-        "## Free EPUB → MP3 (Open Source)\n"
-        "Upload any non-DRM EPUB and generate a natural-sounding AI audiobook (MP3).\n\n"
-        "This free demo is powered by [Kokoro TTS](https://github.com/hexgrad/kokoro-tts) "
-        "and is part of the open-source project at [github.com/adnjoo/kokoro-epub](https://github.com/adnjoo/kokoro-epub).\n\n"
-        "**Want more voices, formats (PDF, TXT), and cloud hosting?** "
-        "Check out [BookBearAI](https://bookbearai.com) → our full platform for ebook-to-audiobook conversion."
-    )
+with gr.Blocks(title="kokoro-epub — Free EPUB → Audiobook") as demo:
+    gr.Markdown("## Free EPUB → Audiobook (Open Source)")
 
-    with gr.Row():
-        epub_in = gr.File(label="EPUB file", file_types=[".epub"])
-
+    epub_in = gr.File(label="EPUB file", file_types=[".epub"])
     chapter_selector = gr.CheckboxGroup(label="Select chapters to convert", choices=[])
-
     epub_in.change(
-        fn=list_chapter_titles,
+        fn=lambda f: gr.update(
+            choices=[f"{t} ({len(txt.split())} words)" for (t, txt) in extract_chapters(f.name)] if f else []
+        ),
         inputs=epub_in,
-        outputs=chapter_selector
+        outputs=chapter_selector,
     )
 
     with gr.Row():
         voice = gr.Dropdown(
             label="Voice",
             value=DEFAULT_VOICE,
-            choices=["af_heart","af_alloy","af_bella","af_rose","am_michael","am_adam","am_mandarin"],
+            choices=["af_heart", "af_alloy", "af_bella", "af_rose", "am_michael", "am_adam", "am_mandarin"],
         )
         speed = gr.Slider(0.7, 1.3, value=1.0, step=0.05, label="Speed")
+        format_choice = gr.Radio(label="Output format", choices=["MP3", "M4B"], value="MP3")
 
     run_btn = gr.Button("Convert")
-    audio_out = gr.File(label="Download MP3 (or ZIP of WAVs)")
-    chapters_out = gr.File(label="Download Chapters Metadata")
+    audio_out = gr.File(label="Download MP3 (or ZIP)", visible=False)
+    m4b_out = gr.File(label="Download M4B (with chapters)", visible=False)
     logs = gr.Textbox(label="Logs", lines=12)
 
     run_btn.click(
         fn=epub_to_audio,
-        inputs=[epub_in, voice, speed, chapter_selector],
-        outputs=[audio_out, chapters_out, logs],
+        inputs=[epub_in, voice, speed, chapter_selector, format_choice],
+        outputs=[audio_out, m4b_out, logs],
     )
 
 
-# ---------------- MAIN ---------------- #
-
 if __name__ == "__main__":
-    print("Compiled CUDA version:", torch.version.cuda)
-    print("Is CUDA available?:", torch.cuda.is_available())
-    if torch.cuda.is_available():
-        print("Current CUDA device index:", torch.cuda.current_device())
-        print("Current CUDA device name:", torch.cuda.get_device_name(0))
-    else:
-        print("CUDA is not available. Skipping device info.")
-
     demo.launch()
