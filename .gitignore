@@ -1,5 +1,5 @@
 venv/
-__pycachce__
+__pycache__
 
 # misc
 .DS_Store
