@@ -5,3 +5,4 @@ ebooklib
 beautifulsoup4
 soundfile
 pydub       # optional, for MP3 merge (needs system ffmpeg)
+bs4
