@@ -1,4 +1,5 @@
 venv/
+__pycachce__
 
 # misc
 .DS_Store

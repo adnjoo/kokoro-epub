@@ -2,9 +2,8 @@ import gradio as gr
 import os, re, tempfile, shutil, time
 from pathlib import Path
 
-# EPUB parsing + text cleanup
-from ebooklib import epub, ITEM_DOCUMENT
-from bs4 import BeautifulSoup
+# EPUB parsing
+from extract_chapters import extract_chapters
 
 # TTS + audio I/O
 from kokoro import KPipeline
@@ -13,8 +12,6 @@ import soundfile as sf
 # Torch
 import torch
 
-from extract_chapters import extract_chapters
-
 # Optional merge to MP3 (requires ffmpeg on the system)
 try:
     from pydub import AudioSegment
@@ -22,13 +19,16 @@ try:
 except Exception:
     HAVE_PYDUB = False
 
-MIN_TEXT_LENGTH = 100
 SPLIT_PATTERN = r"\n{2,}"      # split on blank-line paragraphs
 SAMPLE_RATE = 24000
 DEFAULT_LANG = "a"             # Kokoro English
 DEFAULT_VOICE = "af_heart"     # Kokoro English female
 
+
+# ---------------- HELPERS ---------------- #
+
 def _merge_to_mp3(wav_paths, out_mp3_path, bitrate="64k"):
+    """Merge WAVs into a single MP3 using pydub/ffmpeg."""
     if not HAVE_PYDUB or shutil.which("ffmpeg") is None:
         return False
     combined = AudioSegment.silent(duration=0)
@@ -38,14 +38,22 @@ def _merge_to_mp3(wav_paths, out_mp3_path, bitrate="64k"):
     return True
 
 
-def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
-    """Gradio generator: yields (file, logs) progressively, with progress bar updates."""
+def list_chapter_titles(epub_file):
+    if epub_file is None:
+        return gr.update(choices=[])
+    chapters = extract_chapters(epub_file.name)
+    titles = [t for (t, _) in chapters]
+    return gr.update(choices=titles, value=titles)  # pre-select all
+
+# ---------------- MAIN PIPELINE ---------------- #
+
+def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress()):
+    """Convert EPUB chapters into audiobook MP3, filtering by user selection."""
     if epub_file is None:
         yield None, "Please upload an EPUB."
         return
 
-    start_time = time.time()   # 🕒 start stopwatch once
-
+    start_time = time.time()
     workdir = tempfile.mkdtemp(prefix="kokoro_epub_")
     wav_dir = Path(workdir) / "wavs"
     wav_dir.mkdir(parents=True, exist_ok=True)
@@ -56,9 +64,14 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
     try:
         chapters = extract_chapters(epub_file.name)
         if not chapters:
-            yield None, "No sufficiently long chapters found (MIN_TEXT_LENGTH=100)."
+            yield None, "No chapters found."
             return
 
+        # Filter by user selection
+        if selected_titles:
+            chapters = [(t, txt) for (t, txt) in chapters if t in selected_titles]
+
+        # Pick device
         try:
             if torch.cuda.is_available():
                 device = "cuda"
@@ -78,9 +91,12 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
         wav_paths = []
         part_idx = 0
         total = len(chapters)
+
+        # Generate audio per chapter
         for ci, (title, text) in enumerate(chapters):
             progress((ci + 1) / total, desc=f"Processing {title} ({ci+1}/{total})")
-            logs += f"\n🔊 {title} ({ci+1}/{total})"
+            elapsed = time.time() - start_time
+            logs += f"\n🔊 {title} ({ci+1}/{total}) (elapsed {elapsed:.2f}s)"
             yield None, logs
 
             for _, _, audio in pipeline(
@@ -89,10 +105,13 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
                 speed=float(speed),
                 split_pattern=SPLIT_PATTERN,
             ):
-                wav_path = wav_dir / f"part_{ci:03d}_{title}.wav"
+                safe_title = re.sub(r"[^a-zA-Z0-9]+", "_", title)[:30]
+                wav_path = wav_dir / f"part_{ci:03d}_{safe_title}.wav"
                 sf.write(str(wav_path), audio, SAMPLE_RATE)
                 wav_paths.append(str(wav_path))
+                part_idx += 1
 
+        # Merge to MP3
         out_dir = Path(workdir)
         out_mp3 = out_dir / "audiobook.mp3"
         if _merge_to_mp3(wav_paths, str(out_mp3)):
@@ -112,7 +131,7 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
         yield None, f"❌ Error: {e}"
 
 
-# ---------------- Gradio UI ---------------- #
+# ---------------- GRADIO UI ---------------- #
 
 with gr.Blocks(title="BookBearAI — Free EPUB → MP3") as demo:
     gr.Markdown(
@@ -127,19 +146,20 @@ with gr.Blocks(title="BookBearAI — Free EPUB → MP3") as demo:
     with gr.Row():
         epub_in = gr.File(label="EPUB file", file_types=[".epub"])
 
+    # Dynamic chapter selector
+    chapter_selector = gr.CheckboxGroup(label="Select chapters to convert", choices=[])
+
+    epub_in.change(
+        fn=list_chapter_titles,
+        inputs=epub_in,
+        outputs=chapter_selector
+    )
+
     with gr.Row():
         voice = gr.Dropdown(
             label="Voice",
             value=DEFAULT_VOICE,
-            choices=[
-                "af_heart",
-                "af_alloy",
-                "af_bella",
-                "af_rose",
-                "am_michael",
-                "am_adam",
-                "am_mandarin",
-            ],
+            choices=["af_heart","af_alloy","af_bella","af_rose","am_michael","am_adam","am_mandarin"],
         )
         speed = gr.Slider(0.7, 1.3, value=1.0, step=0.05, label="Speed")
 
@@ -149,9 +169,12 @@ with gr.Blocks(title="BookBearAI — Free EPUB → MP3") as demo:
 
     run_btn.click(
         fn=epub_to_audio,
-        inputs=[epub_in, voice, speed],
+        inputs=[epub_in, voice, speed, chapter_selector],
         outputs=[audio_out, logs],
     )
+
+
+# ---------------- MAIN ---------------- #
 
 if __name__ == "__main__":
     print("Compiled CUDA version:", torch.version.cuda)
