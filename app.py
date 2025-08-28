@@ -100,9 +100,8 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
 
         # Generate audio per chapter
         for ci, (title, text) in enumerate(chapters):
-            progress((ci + 1) / total, desc=f"Processing {title} ({ci+1}/{total})")
-            elapsed = time.time() - start_time
-            logs += f"\n🔊 {title} ({ci+1}/{total}) – {len(text.split())} words (elapsed {elapsed:.2f}s)"
+            chapter_start = time.time()
+            logs += f"\n🔊 Starting {title} ({ci+1}/{total}) – {len(text.split())} words"
             yield None, logs
 
             for _, _, audio in pipeline(
@@ -117,9 +116,17 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
                 wav_paths.append(str(wav_path))
                 part_idx += 1
 
+            # measure chapter time once all splits are written
+            chapter_elapsed = time.time() - chapter_start
+            logs += f"\n✅ Finished {title} in {chapter_elapsed:.2f}s"
+            yield None, logs
+
         # Merge to MP3
         out_dir = Path(workdir)
-        out_mp3 = out_dir / "audiobook.mp3"
+        base_name = Path(epub_file.name).stem  # e.g. "meta"
+        out_name = f"{base_name}_{voice}.mp3"  # e.g. "meta_af_heart.mp3"
+        out_mp3 = out_dir / out_name
+        
         if _merge_to_mp3(wav_paths, str(out_mp3)):
             logs += f"\n✅ MP3 created ({out_mp3.name})."
             total_time = time.time() - start_time
