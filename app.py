@@ -38,13 +38,28 @@ def _merge_to_mp3(wav_paths, out_mp3_path, bitrate="64k"):
     return True
 
 
+def _write_chapters_metadata(chapter_durations, out_txt):
+    """Write ffmpeg-style chapters.txt from [(title, dur_ms), ...]."""
+    offset = 0
+    with open(out_txt, "w", encoding="utf-8") as f:
+        f.write(";FFMETADATA1\n")
+        for title, dur in chapter_durations:
+            start = offset
+            end = offset + dur
+            f.write("[CHAPTER]\n")
+            f.write("TIMEBASE=1/1000\n")
+            f.write(f"START={start}\n")
+            f.write(f"END={end}\n")
+            f.write(f"title={title}\n\n")
+            offset = end
+
+
 def list_chapter_titles(epub_file):
     if epub_file is None:
         return gr.update(choices=[])
     chapters = extract_chapters(epub_file.name)
-    # show word counts
     titles = [f"{t} ({len(txt.split())} words)" for (t, txt) in chapters]
-    return gr.update(choices=titles, value=titles)  # pre-select all
+    return gr.update(choices=titles, value=titles)
 
 
 # ---------------- MAIN PIPELINE ---------------- #
@@ -52,7 +67,7 @@ def list_chapter_titles(epub_file):
 def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress()):
     """Convert EPUB chapters into audiobook MP3, filtering by user selection."""
     if epub_file is None:
-        yield None, "Please upload an EPUB."
+        yield None, None, "Please upload an EPUB."
         return
 
     start_time = time.time()
@@ -61,15 +76,14 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
     wav_dir.mkdir(parents=True, exist_ok=True)
 
     logs = "🔎 Reading EPUB…"
-    yield None, logs
+    yield None, None, logs
 
     try:
         chapters = extract_chapters(epub_file.name)
         if not chapters:
-            yield None, "No chapters found."
+            yield None, None, "No chapters found."
             return
 
-        # Filter by user selection (with word counts in labels)
         if selected_titles:
             chapters = [
                 (t, txt)
@@ -90,20 +104,22 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
             logs += f"\n torch error checking CUDA: {e}"
 
         logs += f"\n🚀 Initializing Kokoro (device={device})…"
-        yield None, logs
+        yield None, None, logs
 
         pipeline = KPipeline(lang_code=DEFAULT_LANG, device=device)
 
         wav_paths = []
         part_idx = 0
         total = len(chapters)
+        chapter_durations = []
 
         # Generate audio per chapter
         for ci, (title, text) in enumerate(chapters):
             chapter_start = time.time()
             logs += f"\n🔊 Starting {title} ({ci+1}/{total}) – {len(text.split())} words"
-            yield None, logs
+            yield None, None, logs
 
+            chapter_wavs = []
             for _, _, audio in pipeline(
                 text,
                 voice=voice,
@@ -114,34 +130,45 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, progress=gr.Progress
                 wav_path = wav_dir / f"part_{part_idx:05d}_{safe_title}.wav"
                 sf.write(str(wav_path), audio, SAMPLE_RATE)
                 wav_paths.append(str(wav_path))
+                chapter_wavs.append(str(wav_path))
                 part_idx += 1
 
-            # measure chapter time once all splits are written
+            if HAVE_PYDUB:
+                dur_ms = sum(len(AudioSegment.from_wav(w)) for w in chapter_wavs)
+                chapter_durations.append((title, dur_ms))
+
             chapter_elapsed = time.time() - chapter_start
             logs += f"\n✅ Finished {title} in {chapter_elapsed:.2f}s"
-            yield None, logs
+            yield None, None, logs
 
         # Merge to MP3
         out_dir = Path(workdir)
-        base_name = Path(epub_file.name).stem  # e.g. "meta"
-        out_name = f"{base_name}_{voice}.mp3"  # e.g. "meta_af_heart.mp3"
+        base_name = Path(epub_file.name).stem
+        out_name = f"{base_name}_{voice}.mp3"
         out_mp3 = out_dir / out_name
-        
+        chapters_txt = None
+
         if _merge_to_mp3(wav_paths, str(out_mp3)):
             logs += f"\n✅ MP3 created ({out_mp3.name})."
+
+            if chapter_durations:
+                chapters_txt = out_dir / f"{base_name}_chapters.txt"
+                _write_chapters_metadata(chapter_durations, chapters_txt)
+                logs += f"\n📝 Chapters metadata saved ({chapters_txt.name})."
+
             total_time = time.time() - start_time
             logs += f"\n⏱️ Total time: {total_time:.2f} seconds"
-            yield str(out_mp3), logs
+            yield str(out_mp3), str(chapters_txt) if chapters_txt else None, logs
         else:
             zip_base = out_dir / "audiobook_wavs"
             zip_path = shutil.make_archive(str(zip_base), "zip", wav_dir)
             total_time = time.time() - start_time
             logs += "\nℹ️ ffmpeg not found — returning WAVs as ZIP."
             logs += f"\n⏱️ Total time: {total_time:.2f} seconds"
-            yield zip_path, logs
+            yield zip_path, None, logs
 
     except Exception as e:
-        yield None, f"❌ Error: {e}"
+        yield None, None, f"❌ Error: {e}"
 
 
 # ---------------- GRADIO UI ---------------- #
@@ -159,7 +186,6 @@ with gr.Blocks(title="BookBearAI — Free EPUB → MP3") as demo:
     with gr.Row():
         epub_in = gr.File(label="EPUB file", file_types=[".epub"])
 
-    # Dynamic chapter selector
     chapter_selector = gr.CheckboxGroup(label="Select chapters to convert", choices=[])
 
     epub_in.change(
@@ -178,12 +204,13 @@ with gr.Blocks(title="BookBearAI — Free EPUB → MP3") as demo:
 
     run_btn = gr.Button("Convert")
     audio_out = gr.File(label="Download MP3 (or ZIP of WAVs)")
+    chapters_out = gr.File(label="Download Chapters Metadata")
     logs = gr.Textbox(label="Logs", lines=12)
 
     run_btn.click(
         fn=epub_to_audio,
         inputs=[epub_in, voice, speed, chapter_selector],
-        outputs=[audio_out, logs],
+        outputs=[audio_out, chapters_out, logs],
     )
 
 
