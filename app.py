@@ -13,6 +13,8 @@ import soundfile as sf
 # Torch
 import torch
 
+from extract_chapters import extract_chapters
+
 # Optional merge to MP3 (requires ffmpeg on the system)
 try:
     from pydub import AudioSegment
@@ -25,21 +27,6 @@ SPLIT_PATTERN = r"\n{2,}"      # split on blank-line paragraphs
 SAMPLE_RATE = 24000
 DEFAULT_LANG = "a"             # Kokoro English
 DEFAULT_VOICE = "af_heart"     # Kokoro English female
-
-
-def _extract_epub_chapters(epub_path: str):
-    book = epub.read_epub(epub_path)
-    chapters = []
-    for item in book.items:
-        if item.get_type() == ITEM_DOCUMENT:
-            soup = BeautifulSoup(item.get_content(), "html.parser")
-            text = soup.get_text(separator="\n").strip()
-            text = text.replace("\r\n", "\n").replace("\r", "\n")
-            text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
-            if len(text) >= MIN_TEXT_LENGTH:
-                chapters.append(text)
-    return chapters
-
 
 def _merge_to_mp3(wav_paths, out_mp3_path, bitrate="64k"):
     if not HAVE_PYDUB or shutil.which("ffmpeg") is None:
@@ -67,7 +54,7 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
     yield None, logs
 
     try:
-        chapters = _extract_epub_chapters(epub_file.name)
+        chapters = extract_chapters(epub_file.name)
         if not chapters:
             yield None, "No sufficiently long chapters found (MIN_TEXT_LENGTH=100)."
             return
@@ -91,23 +78,20 @@ def epub_to_audio(epub_file, voice, speed, progress=gr.Progress()):
         wav_paths = []
         part_idx = 0
         total = len(chapters)
-
-        for ci, chapter in enumerate(chapters):
-            progress((ci + 1) / total, desc=f"Processing chapter {ci+1}/{total}")
-            elapsed = time.time() - start_time
-            logs += f"\n🔊 Chapter {ci+1}/{total} (elapsed {elapsed:.2f}s)"
+        for ci, (title, text) in enumerate(chapters):
+            progress((ci + 1) / total, desc=f"Processing {title} ({ci+1}/{total})")
+            logs += f"\n🔊 {title} ({ci+1}/{total})"
             yield None, logs
 
             for _, _, audio in pipeline(
-                chapter,
+                text,
                 voice=voice,
                 speed=float(speed),
                 split_pattern=SPLIT_PATTERN,
             ):
-                wav_path = wav_dir / f"part_{part_idx:05d}.wav"
+                wav_path = wav_dir / f"part_{ci:03d}_{title}.wav"
                 sf.write(str(wav_path), audio, SAMPLE_RATE)
                 wav_paths.append(str(wav_path))
-                part_idx += 1
 
         out_dir = Path(workdir)
         out_mp3 = out_dir / "audiobook.mp3"

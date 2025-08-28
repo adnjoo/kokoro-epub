@@ -11,7 +11,6 @@ def extract_chapters(epub_path):
             if not text:
                 continue
 
-            # try to find a heading
             heading = soup.find(["h1", "h2", "h3"])
             if heading and heading.get_text(strip=True):
                 title = heading.get_text(strip=True)
