@@ -7,7 +7,7 @@ sdk: gradio
 sdk_version: 5.44.0
 app_file: app.py
 pinned: false
-short_description: epub 2 mp3
+short_description: epub 2 mp3 / m4b
 ---
 
 # kokoro-epub
@@ -16,7 +16,7 @@ short_description: epub 2 mp3
 **This tool is intended for use with non-DRM, legally acquired eBooks only.** <br>
 The authors are not responsible for any misuse of this software or any resulting legal consequences. <br>
 
-Convert EPUB to audiobook using Python.
+Convert EPUB to audiobook (MP3 or M4B) using Python.
 
 <img src='public/20250828.png' width='400'>
 

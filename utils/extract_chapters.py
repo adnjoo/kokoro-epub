@@ -2,6 +2,8 @@ from ebooklib import epub, ITEM_DOCUMENT
 from bs4 import BeautifulSoup
 
 def extract_chapters(epub_path):
+    """Extract chapter titles and text content from an EPUB file."""
+
     book = epub.read_epub(epub_path)
     chapters = []
     for idref, _ in book.spine:
