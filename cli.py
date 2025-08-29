@@ -1,5 +1,6 @@
 import argparse, sys
 from pathlib import Path
+import shutil
 from pipeline import epub_to_audio, extract_chapters, DEFAULT_VOICE
 
 def main():
@@ -50,9 +51,16 @@ def main():
                 for line in diff.strip().splitlines():
                     print("   " + line)
             last_logs = logs
-
+        
         if mp3_out or m4b_out:
-            result_file = mp3_out or m4b_out
+            tmp_result = Path(mp3_out or m4b_out)
+            out_dir = Path(args.out)
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            # Rebuild filename in final output dir
+            final_path = out_dir / tmp_result.name
+            shutil.copy(tmp_result, final_path)
+            result_file = final_path
 
     print(f"\n✅ Audiobook ready: {result_file}")
 

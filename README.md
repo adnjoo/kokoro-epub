@@ -16,7 +16,7 @@ short_description: epub 2 mp3 / m4b
 **This tool is intended for use with non-DRM, legally acquired eBooks only.** <br>
 The authors are not responsible for any misuse of this software or any resulting legal consequences. <br>
 
-Convert EPUB to audiobook (MP3 or M4B) using Python.
+Converts EPUB to audiobook (MP3 or M4B (chapter markers)) using python.
 
 <img src='public/20250828.png' width='400'>
 
@@ -45,6 +45,22 @@ CPU - 1389s/23' | WPS 18
 ```bash
  pip install --upgrade torch --index-url https://download.pytorch.org/whl/cu128
 ```
+
+### CLI Usage
+
+In addition to the Gradio UI, you can also run the tool directly from the command line with `cli.py`:
+
+List chapters in an EPUB:
+```bash
+python cli.py 5200.epub --list-chapters
+````
+
+Convert to M4B, selecting only chapters II and III:
+
+```bash
+python cli.py 5200.epub --format M4B --chapters 3,4 --out audiobooks
+```
+
 
 ## Sample Output
 

@@ -26,6 +26,6 @@ def extract_chapters(epub_path):
 
 
 if __name__ == "__main__":
-    chapters = extract_chapters("../public/meta.epub")
+    chapters = extract_chapters("../public/5200.epub")
     for i, (title, text) in enumerate(chapters, 1):
         print(f"{i}. {title} ({len(text.split())} words)")
