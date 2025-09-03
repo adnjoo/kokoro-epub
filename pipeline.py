@@ -3,6 +3,7 @@ from pathlib import Path
 import soundfile as sf
 import torch
 from kokoro import KPipeline
+from gradio import update
 
 from utils import (
     extract_chapters,
@@ -102,7 +103,7 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, format_choice, progr
         if merge_to_mp3(wav_paths, str(mp3_path)):
             logs += f"\n✅ MP3 created ({mp3_path.name})."
             logs += f"\n⏱️ Total time: {time.time() - start_time:.2f}s"
-            yield str(mp3_path), None, logs
+            yield update(value=str(mp3_path), visible=True), update(visible=False), logs        
         else:
             yield None, None, "❌ Failed to merge MP3"
 
@@ -110,6 +111,6 @@ def epub_to_audio(epub_file, voice, speed, selected_titles, format_choice, progr
         if merge_to_m4b(wav_paths, str(m4b_path), chapters_txt):
             logs += f"\n📚 M4B created ({m4b_path.name})."
             logs += f"\n⏱️ Total time: {time.time() - start_time:.2f}s"
-            yield None, str(m4b_path), logs
+            yield update(visible=False), update(value=str(m4b_path), visible=True), logs
         else:
             yield None, None, "❌ Failed to merge M4B"
