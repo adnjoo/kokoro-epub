@@ -28,6 +28,9 @@ python3.11 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
+# System requirement for MP3/M4B merge
+sudo apt install ffmpeg -y    # required for pydub exports
+
 # Run
 python app.py
 ```
