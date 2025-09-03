@@ -44,6 +44,7 @@ def main():
         args.speed,
         selected,
         args.format.upper(),
+        cli=True,
     ):
         if logs and logs != last_logs:
             diff = logs[len(last_logs):]
