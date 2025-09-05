@@ -27,6 +27,15 @@ def extract_chapters(epub_path):
                             content_parts.append(sib.get_text(" ", strip=True))
                     chapter_text = " ".join(content_parts).strip()
                     if chapter_text:
+                        # skip obvious boilerplate
+                        skip_titles = [
+                            "the project gutenberg", 
+                            "table of contents", 
+                            "the full project gutenberg license"
+                        ]
+                        if any(title.lower().startswith(s) for s in skip_titles):
+                            continue
+
                         chapters.append((title, chapter_text))
             else:
                 chapters.append((item.file_name, text))
