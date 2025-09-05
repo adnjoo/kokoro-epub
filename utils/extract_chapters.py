@@ -14,18 +14,20 @@ def extract_chapters(epub_path):
             if not text:
                 continue
 
-            # first heading or fallback to file name
-            heading = soup.find(["h1", "h2", "h3"])
-            if heading and heading.get_text(strip=True):
-                title = heading.get_text(strip=True)
+            # find all chapter headings, not just the first
+            headings = soup.find_all(["h1", "h2", "h3"])
+            if headings:
+                for heading in headings:
+                    title = heading.get_text(strip=True)
+                    content_parts = []
+                    for sib in heading.next_siblings:
+                        if getattr(sib, "name", None) in ["h1", "h2", "h3"]:
+                            break
+                        if hasattr(sib, "get_text"):
+                            content_parts.append(sib.get_text(" ", strip=True))
+                    chapter_text = " ".join(content_parts).strip()
+                    if chapter_text:
+                        chapters.append((title, chapter_text))
             else:
-                title = item.file_name
-
-            chapters.append((title, text))
+                chapters.append((item.file_name, text))
     return chapters
-
-
-if __name__ == "__main__":
-    chapters = extract_chapters("../public/5200.epub")
-    for i, (title, text) in enumerate(chapters, 1):
-        print(f"{i}. {title} ({len(text.split())} words)")
