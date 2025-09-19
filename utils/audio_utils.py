@@ -1,4 +1,4 @@
-import os, shutil
+import os, shutil, subprocess
 from pathlib import Path
 from pydub import AudioSegment
 
@@ -24,8 +24,11 @@ def merge_to_m4b(wav_paths, out_m4b_path, chapters_txt=None, bitrate="64k"):
     if chapters_txt:
         cmd += ["-i", str(chapters_txt), "-map_metadata", "1"]
     cmd += ["-c:a", "aac", "-b:a", bitrate, "-movflags", "faststart", str(out_m4b_path)]
-    os.system(" ".join(cmd))
-    return True
+    try:
+        result = subprocess.run(cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return result.returncode == 0
+    except Exception:
+        return False
 
 def chapter_duration_ms(wav_files):
     """Return total duration in ms for a list of wavs."""
