@@ -18,6 +18,8 @@ The authors are not responsible for any misuse of this software or any resulting
 
 Converts EPUB to audiobook (MP3 or M4B (chapter markers)) using python.
 
+[Sponsor me on GitHub](https://github.com/sponsors/adnjoo)
+
 <img src='public/20250828.png' width='400'>
 
 ## Quick Start
