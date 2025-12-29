@@ -37,7 +37,7 @@ sudo apt install ffmpeg -y    # required for pydub exports
 python app.py
 ```
 
-👉 Try it free on [Hugging Face Space](https://huggingface.co/spaces/adnjoo/kokoro-epub) — or run faster in the cloud at [bookbearai.com](https://bookbearai.com).
+👉 Try it free on [Hugging Face Space](https://huggingface.co/spaces/adnjoo/kokoro-epub).
 
 ### GPU Torch
 
